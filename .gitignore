@@ -1,11 +1,32 @@
+# Python
 __pycache__/
 *.pyc
+
+# Environment
 .env
 .env.*
+
+# Logs
 *.log
 
+# VSCode / IntelliJ
 .vscode/
 .idea/
 
+# Banco local
 *.db
+
+# macOS
 .DS_Store
+
+# Terraform
+*.tfstate
+*.tfstate.*
+
+# Kubernetes
+*.bak
+
+# Imagens de evidências
+*.png
+*.jpg
+*.jpeg

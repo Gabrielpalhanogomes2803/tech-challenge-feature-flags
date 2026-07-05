@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: targeting-service
+  namespace: togglemaster
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: targeting-service
+
+  template:
+    metadata:
+      labels:
+        app: targeting-service
+
+    spec:
+      containers:
+      - name: targeting-service
+        image: 876908012464.dkr.ecr.us-east-1.amazonaws.com/togglemaster/targeting-service:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8003
+
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+        envFrom:
+        - configMapRef:
+            name: togglemaster-config
+        - secretRef:
+            name: togglemaster-secret

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: togglemaster
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: analytics-service
+
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+
+    spec:
+      containers:
+      - name: analytics-service
+        image: 876908012464.dkr.ecr.us-east-1.amazonaws.com/togglemaster/analytics-service:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8005
+
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+        envFrom:
+        - configMapRef:
+            name: togglemaster-config
+        - secretRef:
+            name: togglemaster-secret
