@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main, fase-3]
+    paths-ignore:
+      - "gitops/**"
   workflow_dispatch:
 
 permissions:

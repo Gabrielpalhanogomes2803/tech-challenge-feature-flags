@@ -113,3 +113,118 @@ resource "aws_eks_node_group" "this" {
     Name = "${var.name_prefix}-nodes"
   })
 }
+
+resource "aws_eks_addon" "pod_identity_agent" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "eks-pod-identity-agent"
+
+  depends_on = [aws_eks_node_group.this]
+
+  tags = var.tags
+}
+
+resource "aws_iam_role" "evaluation" {
+  name = "${var.name_prefix}-evaluation-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "evaluation" {
+  name = "${var.name_prefix}-evaluation-sqs"
+  role = aws_iam_role.evaluation.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "sqs:SendMessage",
+        "sqs:GetQueueUrl",
+        "sqs:GetQueueAttributes"
+      ]
+      Resource = var.sqs_queue_arn
+    }]
+  })
+}
+
+resource "aws_eks_pod_identity_association" "evaluation" {
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "togglemaster"
+  service_account = "evaluation-service"
+  role_arn        = aws_iam_role.evaluation.arn
+
+  depends_on = [aws_eks_addon.pod_identity_agent]
+}
+
+resource "aws_iam_role" "analytics" {
+  name = "${var.name_prefix}-analytics-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "analytics" {
+  name = "${var.name_prefix}-analytics-data"
+  role = aws_iam_role.analytics.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = var.sqs_queue_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ]
+        Resource = var.dynamodb_table_arn
+      }
+    ]
+  })
+}
+
+resource "aws_eks_pod_identity_association" "analytics" {
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "togglemaster"
+  service_account = "analytics-service"
+  role_arn        = aws_iam_role.analytics.arn
+
+  depends_on = [aws_eks_addon.pod_identity_agent]
+}

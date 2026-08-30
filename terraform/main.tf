@@ -72,7 +72,19 @@ module "eks" {
   name_prefix         = local.name_prefix
   private_subnet_ids  = module.network.private_subnet_ids
   public_access_cidrs = var.eks_public_access_cidrs
+  sqs_queue_arn       = module.sqs.queue_arn
+  dynamodb_table_arn  = module.dynamodb.table_arn
 
   tags = local.common_tags
 }
 
+
+module "github_oidc" {
+  source = "./modules/github_oidc"
+
+  name_prefix         = local.name_prefix
+  github_repository   = "Gabrielpalhanogomes2803/tech-challenge-feature-flags"
+  ecr_repository_arns = values(module.ecr.repository_arns)
+
+  tags = local.common_tags
+}

@@ -74,3 +74,8 @@ output "eks_node_role_arn" {
   description = "ARN da role dos nodes."
   value       = module.eks.node_role_arn
 }
+
+output "github_deploy_role_arn" {
+  description = "Adicionar no GitHub como AWS_DEPLOY_ROLE_ARN."
+  value       = module.github_oidc.deploy_role_arn
+}
