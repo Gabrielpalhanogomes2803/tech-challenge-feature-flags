@@ -16,14 +16,6 @@ resource "aws_security_group" "this" {
     cidr_blocks = [var.vpc_cidr_block]
   }
 
-  egress {
-    description = "Trafego de saida"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-redis-sg"
   })

@@ -69,11 +69,10 @@ module "redis" {
 module "eks" {
   source = "./modules/eks"
 
-  name_prefix         = local.name_prefix
-  private_subnet_ids  = module.network.private_subnet_ids
-  public_access_cidrs = var.eks_public_access_cidrs
-  sqs_queue_arn       = module.sqs.queue_arn
-  dynamodb_table_arn  = module.dynamodb.table_arn
+  name_prefix        = local.name_prefix
+  private_subnet_ids = module.network.private_subnet_ids
+  sqs_queue_arn      = module.sqs.queue_arn
+  dynamodb_table_arn = module.dynamodb.table_arn
 
   tags = local.common_tags
 }

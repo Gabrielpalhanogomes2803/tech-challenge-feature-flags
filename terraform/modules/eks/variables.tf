@@ -6,11 +6,6 @@ variable "private_subnet_ids" {
   type = list(string)
 }
 
-variable "public_access_cidrs" {
-  description = "CIDRs autorizados a acessar publicamente a API do EKS."
-  type        = list(string)
-}
-
 variable "node_instance_types" {
   type    = list(string)
   default = ["t3.medium"]
