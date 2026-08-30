@@ -30,3 +30,12 @@ __pycache__/
 *.png
 *.jpg
 *.jpeg
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform/backend.hcl
+terraform/terraform.tfvars
