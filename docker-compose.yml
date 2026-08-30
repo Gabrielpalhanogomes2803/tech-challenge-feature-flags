@@ -11,6 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
+      - ./auth-service/db/init.sql:/docker-entrypoint-initdb.d/01-auth.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-main:
     image: postgres:16
@@ -23,18 +29,43 @@ services:
       - "5433:5432"
     volumes:
       - postgres_main_data:/var/lib/postgresql/data
+      - ./flag-service/db/init.sql:/docker-entrypoint-initdb.d/01-flags.sql:ro
+      - ./targeting-service/db/init.sql:/docker-entrypoint-initdb.d/02-targeting.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d flags_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  dynamodb-local:
-    image: amazon/dynamodb-local
-    container_name: dynamodb-local
+  localstack:
+    image: localstack/localstack:4.14.0
+    container_name: localstack
     ports:
-      - "8000:8000"
+      - "127.0.0.1:4566:4566"
+    environment:
+      SERVICES: sqs,dynamodb
+      AWS_DEFAULT_REGION: us-east-1
+      LOCALSTACK_HOST: localstack:4566
+      SQS_ENDPOINT_STRATEGY: path
+    volumes:
+      - ./localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   auth-service:
     build: ./auth-service
@@ -46,7 +77,8 @@ services:
     ports:
       - "8001:8001"
     depends_on:
-      - postgres-auth
+      postgres-auth:
+        condition: service_healthy
 
   flag-service:
     build: ./flag-service
@@ -58,8 +90,10 @@ services:
     ports:
       - "8002:8002"
     depends_on:
-      - auth-service
-      - postgres-main
+      postgres-main:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
 
   targeting-service:
     build: ./targeting-service
@@ -71,8 +105,10 @@ services:
     ports:
       - "8003:8003"
     depends_on:
-      - auth-service
-      - postgres-main
+      postgres-main:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
 
   evaluation-service:
     build: ./evaluation-service
@@ -84,13 +120,21 @@ services:
       TARGETING_SERVICE_URL: http://targeting-service:8003
       SERVICE_API_KEY: temp-key
       AWS_REGION: us-east-1
-      AWS_SQS_URL: http://localhost:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_SQS_URL: http://localstack:4566/queue/us-east-1/000000000000/togglemaster-analytics
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - "8004:8004"
     depends_on:
-      - redis
-      - flag-service
-      - targeting-service
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      flag-service:
+        condition: service_started
+      targeting-service:
+        condition: service_started
 
   analytics-service:
     build: ./analytics-service
@@ -98,15 +142,18 @@ services:
     environment:
       PORT: 8005
       AWS_REGION: us-east-1
-      AWS_SQS_URL: http://localhost:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_SQS_URL: http://localstack:4566/queue/us-east-1/000000000000/togglemaster-analytics
       AWS_DYNAMODB_TABLE: ToggleMasterAnalytics
-      AWS_ACCESS_KEY_ID: local
-      AWS_SECRET_ACCESS_KEY: local
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
     ports:
       - "8005:8005"
     depends_on:
-      - dynamodb-local
+      localstack:
+        condition: service_healthy
 
 volumes:
   postgres_auth_data:
   postgres_main_data:
+  localstack_data:

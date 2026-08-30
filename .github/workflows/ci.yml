@@ -1,0 +1,142 @@
+name: CI DevSecOps
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, fase-3]
+    paths-ignore:
+      - "gitops/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-quality-security:
+    name: Go - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth-service, evaluation-service]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          cache: false
+
+      - name: Download dependencies
+        working-directory: ${{ matrix.service }}
+        run: go mod download
+
+      - name: Unit tests
+        working-directory: ${{ matrix.service }}
+        run: go test -v ./...
+
+      - name: Lint
+        working-directory: ${{ matrix.service }}
+        run: go vet ./...
+
+      - name: Install Gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+
+      - name: SAST - Gosec
+        working-directory: ${{ matrix.service }}
+        run: gosec -severity high -confidence medium ./...
+
+  python-quality-security:
+    name: Python - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [flag-service, targeting-service, analytics-service]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ${{ matrix.service }}/requirements.txt
+
+      - name: Install dependencies and scanners
+        working-directory: ${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit flake8
+          pip check
+
+      - name: Syntax check
+        working-directory: ${{ matrix.service }}
+        run: python -m compileall -q .
+
+      - name: Lint
+        working-directory: ${{ matrix.service }}
+        run: flake8 . --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: SAST - Bandit
+        working-directory: ${{ matrix.service }}
+        run: bandit -r . -lll
+
+  dependency-scan:
+    name: SCA - Repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  container-scan:
+    name: Container - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - flag-service
+          - targeting-service
+          - evaluation-service
+          - analytics-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image with commit SHA
+        run: |
+          docker build \
+            --tag togglemaster/${{ matrix.service }}:${{ github.sha }} \
+            ./${{ matrix.service }}
+
+      - name: Trivy container scan
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: togglemaster/${{ matrix.service }}:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

@@ -53,6 +53,7 @@ func main() {
 
 	// SQS é opcional no dev local, mas obrigatório em prod
 	sqsQueueURL := os.Getenv("AWS_SQS_URL")
+	awsEndpointURL := os.Getenv("AWS_ENDPOINT_URL")
 	awsRegion := os.Getenv("AWS_REGION")
 	if sqsQueueURL == "" {
 		log.Println("Atenção: AWS_SQS_URL não definida. Eventos não serão enviados.")
@@ -77,7 +78,13 @@ func main() {
 	// Cliente SQS (AWS SDK)
 	var sqsSvc *sqs.SQS
 	if sqsQueueURL != "" {
-		sess, err := session.NewSession(&aws.Config{Region: aws.String(awsRegion)})
+		awsConfig := &aws.Config{Region: aws.String(awsRegion)}
+		if awsEndpointURL != "" {
+			awsConfig.Endpoint = aws.String(awsEndpointURL)
+			awsConfig.DisableSSL = aws.Bool(true)
+		}
+
+		sess, err := session.NewSession(awsConfig)
 		if err != nil {
 			log.Fatalf("Não foi possível criar sessão AWS: %v", err)
 		}
