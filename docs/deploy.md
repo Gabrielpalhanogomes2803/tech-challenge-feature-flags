@@ -1,101 +1,85 @@
-# Deploy do Projeto
+# Implantação do ToggleMaster
 
-## Requisitos
+## Fluxo
 
-- Docker
-- Docker Compose
-- Kubernetes
-- kubectl
-- Conta AWS (para ambiente em nuvem)
+1. Terraform provisiona a infraestrutura AWS.
+2. GitHub Actions executa CI e verificações DevSecOps.
+3. O CD publica imagens imutáveis no ECR.
+4. ArgoCD sincroniza os manifests GitOps no EKS.
 
----
-
-## Execução Local
-
-Iniciar os containers:
+## Ambiente local
 
 ```bash
 docker compose up -d
-```
-
-Verificar os containers:
-
-```bash
 docker compose ps
 ```
 
-Visualizar logs:
+Health checks:
 
 ```bash
-docker compose logs
+for port in 8001 8002 8003 8004 8005; do
+  curl -fsS "http://localhost:${port}/health"
+  echo
+done
 ```
 
-Parar ambiente:
+Encerrar:
 
 ```bash
 docker compose down
 ```
 
----
+## Terraform
 
-## Deploy Kubernetes
-
-Criar namespace
+Validação sem criar recursos:
 
 ```bash
-kubectl apply -f k8s/namespace.yaml
+cd terraform
+terraform fmt -recursive -check
+terraform init -backend=false
+terraform validate
 ```
 
-Criar ConfigMap
+O backend remoto deve ser configurado a partir de `backend.hcl.example`. O arquivo preenchido não deve ser versionado.
+
+Antes do provisionamento, copie `terraform.tfvars.example` para `terraform.tfvars`, revise o plano e somente então execute o apply autorizado.
+
+## Recursos AWS
+
+- VPC, subnets, Internet Gateway, NAT Gateway e rotas;
+- EKS e Managed Node Group;
+- três RDS PostgreSQL;
+- ElastiCache Redis;
+- DynamoDB, SQS e DLQ;
+- cinco repositórios ECR;
+- GitHub OIDC e EKS Pod Identity.
+
+## Secrets
+
+O GitHub usa OIDC e assume a role indicada pelo secret `AWS_DEPLOY_ROLE_ARN`. Access Keys permanentes não são necessárias.
+
+Os secrets das aplicações devem ser criados por mecanismo externo seguro. `gitops/runtime-secrets.example.yaml` contém somente o formato esperado.
+
+## ArgoCD
+
+Após o cluster e o ArgoCD estarem disponíveis:
 
 ```bash
-kubectl apply -f k8s/configmap.yaml
+kubectl apply -f gitops/namespace.yaml
+kubectl apply -f gitops/argocd/applications.yaml
 ```
 
-Criar Secret
+Validação:
 
 ```bash
-kubectl apply -f k8s/secret.yaml
+kubectl get applications -n argocd
+kubectl get pods -n togglemaster
+kubectl get deployments -n togglemaster
+kubectl get services -n togglemaster
 ```
 
-Criar bancos PostgreSQL
+O resultado esperado para as aplicações é `Synced` e `Healthy`.
 
-```bash
-kubectl apply -f k8s/postgres-auth.yaml
-kubectl apply -f k8s/postgres-main.yaml
-```
+## Pipeline
 
-Criar Deployments
-
-```bash
-kubectl apply -f k8s/deployments/
-```
-
-Criar Services
-
-```bash
-kubectl apply -f k8s/services/
-```
-
-Criar Ingress
-
-```bash
-kubectl apply -f k8s/ingress.yaml
-```
-
-Criar HPA
-
-```bash
-kubectl apply -f k8s/hpa/
-```
-
----
-
-## Verificações
-
-```bash
-kubectl get pods -A
-kubectl get svc -A
-kubectl get ingress -A
-kubectl get hpa -A
-```
+O CI executa testes, lint, Gosec, Bandit, Trivy filesystem, build das cinco imagens e Trivy container scan. Após aprovação na branch `main`, o CD publica as imagens usando o SHA do commit e atualiza o GitOps.

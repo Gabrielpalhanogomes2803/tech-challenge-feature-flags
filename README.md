@@ -104,31 +104,13 @@ NGINX Ingress
 
 ## Estrutura do projeto
 
-```text
-.
-├── .github/
-│   └── workflows/
-├── analytics-service/
-├── auth-service/
-├── evaluation-service/
-├── flag-service/
-├── targeting-service/
-├── docs/
-├── k8s/
-│   ├── deployments/
-│   ├── hpa/
-│   ├── services/
-│   ├── configmap.yaml
-│   ├── ingress.yaml
-│   ├── namespace.yaml
-│   ├── postgres-auth.yaml
-│   ├── postgres-main.yaml
-│   └── secret.yaml
-├── scripts/
-├── build-and-push.sh
-├── docker-compose.yml
-└── README.md
-```
+O repositório contém os cinco microsserviços e três áreas principais:
+
+- `.github/workflows/`: pipelines de CI e CD;
+- `terraform/`: infraestrutura AWS e módulos reutilizáveis;
+- `gitops/`: aplicações ArgoCD e manifests dos cinco serviços;
+- `localstack/`: emulação local de SQS e DynamoDB;
+- `docs/`: documentação de arquitetura, implantação e testes.
 
 ---
 
@@ -286,11 +268,11 @@ docker compose down -v
 As imagens dos microsserviços podem ser construídas individualmente:
 
 ```bash
-docker build -t togglemaster/auth-service:latest ./auth-service
-docker build -t togglemaster/flag-service:latest ./flag-service
-docker build -t togglemaster/targeting-service:latest ./targeting-service
-docker build -t togglemaster/evaluation-service:latest ./evaluation-service
-docker build -t togglemaster/analytics-service:latest ./analytics-service
+docker build -t togglemaster-auth:local ./auth-service
+docker build -t togglemaster-flag:local ./flag-service
+docker build -t togglemaster-targeting:local ./targeting-service
+docker build -t togglemaster-evaluation:local ./evaluation-service
+docker build -t togglemaster-analytics:local ./analytics-service
 ```
 
 Também está disponível o script:
@@ -308,44 +290,26 @@ Antes de utilizá-lo, revise as variáveis de região, conta AWS e nomes dos rep
 O projeto utiliza cinco repositórios privados no Amazon ECR:
 
 ```text
-togglemaster/auth-service
-togglemaster/flag-service
-togglemaster/targeting-service
-togglemaster/evaluation-service
-togglemaster/analytics-service
+togglemaster-auth
+togglemaster-flag
+togglemaster-targeting
+togglemaster-evaluation
+togglemaster-analytics
 ```
 
 As imagens publicadas no ECR são utilizadas pelos Deployments do Kubernetes.
 
 ---
 
-## Implantação no Kubernetes
+## Implantação no Kubernetes com GitOps
 
-Os manifestos estão localizados na pasta:
+Os manifests estão em `gitops/services/`.
 
-```text
-k8s/
-```
+Depois que o CI DevSecOps é aprovado, o CD autentica na AWS usando GitHub OIDC, publica imagens no ECR com a tag do commit e atualiza o diretório GitOps. O ArgoCD detecta essa alteração e sincroniza o EKS automaticamente.
 
-A ordem recomendada de aplicação é:
+As cinco aplicações estão declaradas em `gitops/argocd/applications.yaml`.
 
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/postgres-auth.yaml
-kubectl apply -f k8s/postgres-main.yaml
-kubectl apply -f k8s/deployments/
-kubectl apply -f k8s/services/
-kubectl apply -f k8s/ingress.yaml
-kubectl apply -f k8s/hpa/
-```
-
-Também pode ser utilizado o script:
-
-```bash
-./k8s/deploy.sh
-```
+Secrets preenchidos não são versionados. O formato esperado está em `gitops/runtime-secrets.example.yaml`.
 
 ---
 
@@ -483,7 +447,7 @@ O repositório contém documentação adicional na pasta `docs`:
 Também existe um arquivo com comandos de validação:
 
 ```text
-k8s/comandos-validacao.md
+gitops/argocd/applications.yaml
 ```
 
 ---
@@ -496,7 +460,7 @@ Credenciais reais da AWS, tokens, chaves privadas e arquivos `.env` não devem s
 
 Em ambientes produtivos, recomenda-se utilizar:
 
-- AWS IAM Roles for Service Accounts;
+- EKS Pod Identity;
 - AWS Secrets Manager;
 - Kubernetes Secrets;
 - Criptografia com AWS KMS;
