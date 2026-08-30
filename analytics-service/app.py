@@ -21,6 +21,7 @@ load_dotenv()
 AWS_REGION = os.getenv("AWS_REGION")
 SQS_QUEUE_URL = os.getenv("AWS_SQS_URL")
 DYNAMODB_TABLE_NAME = os.getenv("AWS_DYNAMODB_TABLE")
+AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
 
 if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
     log.critical("Erro: AWS_REGION, AWS_SQS_URL, e AWS_DYNAMODB_TABLE devem ser definidos.")
@@ -30,8 +31,8 @@ if not all([AWS_REGION, SQS_QUEUE_URL, DYNAMODB_TABLE_NAME]):
 # Criamos a sessão uma vez
 try:
     session = boto3.Session(region_name=AWS_REGION)
-    sqs_client = session.client("sqs")
-    dynamodb_client = session.client("dynamodb")
+    sqs_client = session.client("sqs", endpoint_url=AWS_ENDPOINT_URL)
+    dynamodb_client = session.client("dynamodb", endpoint_url=AWS_ENDPOINT_URL)
     log.info(f"Clientes Boto3 inicializados na região {AWS_REGION}")
 except NoCredentialsError:
     log.critical("Credenciais da AWS não encontradas. Verifique seu ambiente.")
@@ -120,8 +121,16 @@ app = Flask(__name__)
 
 @app.route('/health')
 def health():
-    # Uma verificação de saúde real poderia checar a conexão com o DynamoDB/SQS
-    return jsonify({"status": "ok"})
+    try:
+        dynamodb_client.describe_table(TableName=DYNAMODB_TABLE_NAME)
+        sqs_client.get_queue_attributes(
+            QueueUrl=SQS_QUEUE_URL,
+            AttributeNames=['QueueArn']
+        )
+        return jsonify({"status": "ok"})
+    except ClientError as error:
+        log.error(f"Health check falhou: {error}")
+        return jsonify({"status": "degraded"}), 503
 
 # --- Inicialização ---
 

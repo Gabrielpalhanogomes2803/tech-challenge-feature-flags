@@ -200,7 +200,7 @@ analytics-service
 postgres-auth
 postgres-main
 redis
-dynamodb-local
+localstack
 ```
 
 ---
@@ -214,7 +214,7 @@ dynamodb-local
 | Targeting Service | `8003` |
 | Evaluation Service | `8004` |
 | Analytics Service | `8005` |
-| DynamoDB Local | `8000` |
+| LocalStack (SQS e DynamoDB) | `4566` (somente localhost) |
 | PostgreSQL Auth | `5432` |
 | PostgreSQL Main | `5433` |
 | Redis | `6379` |
