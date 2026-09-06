@@ -211,7 +211,8 @@ resource "aws_iam_role_policy" "analytics" {
         Action = [
           "dynamodb:PutItem",
           "dynamodb:GetItem",
-          "dynamodb:Query"
+          "dynamodb:Query",
+          "dynamodb:DescribeTable"
         ]
         Resource = var.dynamodb_table_arn
       }

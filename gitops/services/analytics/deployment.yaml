@@ -7,6 +7,8 @@ metadata:
     app.kubernetes.io/name: analytics-service
     app.kubernetes.io/part-of: togglemaster
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
