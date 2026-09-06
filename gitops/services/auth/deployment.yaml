@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: auth-service
-        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-auth:c024dd2d9939bfff078b45c914374053bc5abcae
+        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-auth:cd6b9d2e8f52b5b55fea8f2a21741472ce55b718
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
