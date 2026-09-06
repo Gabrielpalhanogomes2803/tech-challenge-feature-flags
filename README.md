@@ -1,4 +1,4 @@
-oggleMaster — Tech Challenge Fase 3
+ToggleMaster — Tech Challenge Fase 3
 
 Plataforma distribuída para gerenciamento e avaliação de Feature Flags, desenvolvida como parte do Tech Challenge — Fase 3 da Pós-Tech FIAP.
 
