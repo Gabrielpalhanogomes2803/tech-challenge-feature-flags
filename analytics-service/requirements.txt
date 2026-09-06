@@ -4,5 +4,4 @@ boto3==1.34.122
 python-dotenv==1.0.1
 requests==2.32.3
 
-# Vulnerabilidade intencional para demonstracao DevSecOps FIAP
-Django==3.0.0
+# Dependencies used by analytics-service
