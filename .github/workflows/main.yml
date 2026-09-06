@@ -1,58 +1,126 @@
-name: Build and Push to ECR
+name: CD ECR and GitOps
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI DevSecOps
+    types:
+      - completed
     branches:
       - main
-    paths:
-      - 'auth-service/**'
-      - 'flag-service/**'
-      - 'targeting-service/**'
-      - 'evaluation-service/**'
-      - 'analytics-service/**'
-      - '.github/workflows/main.yml'
-
   workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
-  ECR_PREFIX: togglemaster
 
 jobs:
-  build-and-push:
+  publish-and-update-gitops:
+    name: Publish images and update GitOps
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        service:
-          - auth-service
-          - flag-service
-          - targeting-service
-          - evaluation-service
-          - analytics-service
-
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - name: Resolve commit SHA
+        id: source
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Configurar credenciais AWS
+      - name: Checkout source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login no Amazon ECR
+      - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build da imagem
+      - name: Build and push immutable images
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.source.outputs.sha }}
+        shell: bash
         run: |
-          docker build \
-            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_PREFIX }}/${{ matrix.service }}:latest \
-            ./${{ matrix.service }}
+          set -euo pipefail
 
-      - name: Push da imagem
+          while IFS='|' read -r source repository; do
+            image="${REGISTRY}/${repository}:${IMAGE_TAG}"
+
+            docker build --tag "$image" "./${source}"
+            docker push "$image"
+          done <<'SERVICES'
+          auth-service|togglemaster-auth
+          flag-service|togglemaster-flag
+          targeting-service|togglemaster-targeting
+          evaluation-service|togglemaster-evaluation
+          analytics-service|togglemaster-analytics
+          SERVICES
+
+      - name: Update GitOps image tags
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.source.outputs.sha }}
+        shell: bash
         run: |
-          docker push \
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_PREFIX }}/${{ matrix.service }}:latest
+          set -euo pipefail
+
+          sed -i \
+            "s|image: .*togglemaster-auth:.*|image: ${REGISTRY}/togglemaster-auth:${IMAGE_TAG}|" \
+            gitops/services/auth/deployment.yaml
+
+          sed -i \
+            "s|image: .*togglemaster-flag:.*|image: ${REGISTRY}/togglemaster-flag:${IMAGE_TAG}|" \
+            gitops/services/flag/deployment.yaml
+
+          sed -i \
+            "s|image: .*togglemaster-targeting:.*|image: ${REGISTRY}/togglemaster-targeting:${IMAGE_TAG}|" \
+            gitops/services/targeting/deployment.yaml
+
+          sed -i \
+            "s|image: .*togglemaster-evaluation:.*|image: ${REGISTRY}/togglemaster-evaluation:${IMAGE_TAG}|" \
+            gitops/services/evaluation/deployment.yaml
+
+          sed -i \
+            "s|image: .*togglemaster-analytics:.*|image: ${REGISTRY}/togglemaster-analytics:${IMAGE_TAG}|" \
+            gitops/services/analytics/deployment.yaml
+
+      - name: Commit GitOps update
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git switch main
+          git pull --ff-only origin main
+          git add gitops/services/*/deployment.yaml
+
+          if git diff --cached --quiet; then
+            echo "GitOps already references this commit."
+            exit 0
+          fi
+
+          git commit -m "chore(gitops): deploy ${GITHUB_SHA}"
+          git push origin main
