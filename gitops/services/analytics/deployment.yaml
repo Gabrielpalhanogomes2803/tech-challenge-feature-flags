@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: analytics-service
-        image: 000000000000.dkr.ecr.us-east-1.amazonaws.com/togglemaster-analytics:bootstrap
+        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-analytics:62f7df01e82688b0c02331e1aeb0a69de6bb5b42
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
