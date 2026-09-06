@@ -1,518 +1,481 @@
-# ToggleMaster — Tech Challenge Fase 2
+oggleMaster — Tech Challenge Fase 3
 
-Plataforma distribuída para gerenciamento e avaliação de Feature Flags, desenvolvida como parte do Tech Challenge da Pós-Tech FIAP.
+Plataforma distribuída para gerenciamento e avaliação de Feature Flags, desenvolvida como parte do Tech Challenge — Fase 3 da Pós-Tech FIAP.
 
-O projeto demonstra a conteinerização de microsserviços, a execução local com Docker Compose, a implantação em Kubernetes e a integração com serviços da AWS.
+Nesta fase, o projeto evoluiu para um fluxo completo de Infraestrutura como Código, CI/DevSecOps, publicação de imagens no Amazon ECR e entrega GitOps com ArgoCD no Amazon EKS.
 
----
+Observação: os recursos AWS são provisionados sob demanda para demonstração e testes. Após a validação final, a infraestrutura pode ser destruída para evitar cobranças. O repositório mantém todo o código necessário para recriação do ambiente.
 
-## Sobre o projeto
+Visão geral
 
-O ToggleMaster permite criar, consultar, configurar e avaliar Feature Flags de forma escalável.
+O ToggleMaster é composto por cinco microsserviços independentes:
 
-A solução foi construída utilizando uma arquitetura de microsserviços, na qual cada serviço possui uma responsabilidade específica e pode ser implantado e escalado de maneira independente.
+Microsserviço
 
-Entre os principais recursos estão:
+Tecnologia
 
-- Criação e gerenciamento de Feature Flags;
-- Autenticação por API Key;
-- Definição de regras de segmentação;
-- Avaliação de flags para usuários;
-- Cache de avaliações;
-- Publicação e processamento de eventos analíticos;
-- Escalabilidade automática com Kubernetes HPA;
-- Exposição externa por meio do NGINX Ingress.
+Responsabilidade
 
----
+Dependência principal
 
-## Arquitetura
-
-O projeto é composto por cinco microsserviços:
-
-| Microsserviço | Tecnologia | Responsabilidade | Dependência principal |
-|---|---|---|---|
-| `auth-service` | Go | Gerenciamento de API Keys e autenticação | PostgreSQL |
-| `flag-service` | Python / Flask | CRUD das Feature Flags | PostgreSQL |
-| `targeting-service` | Python / Flask | Gerenciamento de regras de segmentação | PostgreSQL |
-| `evaluation-service` | Go | Avaliação das Feature Flags | Redis e Amazon SQS |
-| `analytics-service` | Python | Consumo e armazenamento de eventos analíticos | Amazon SQS e DynamoDB |
-
-### Fluxo simplificado
-
-```text
-Cliente
-   |
-   v
-NGINX Ingress
-   |
-   +--> Auth Service ---------> PostgreSQL
-   |
-   +--> Flag Service ---------> PostgreSQL
-   |
-   +--> Targeting Service ----> PostgreSQL
-   |
-   +--> Evaluation Service ---> Redis
-   |                         |
-   |                         +--> Amazon SQS
-   |
-   +--> Analytics Service ----> Amazon SQS
-                              |
-                              +--> DynamoDB
-```
-
----
-
-## Tecnologias utilizadas
-
-### Desenvolvimento
-
-- Go
-- Python
-- Flask
-- PostgreSQL
-- Redis
-- DynamoDB
-
-### Conteinerização e orquestração
-
-- Docker
-- Docker Compose
-- Kubernetes
-- NGINX Ingress Controller
-- Horizontal Pod Autoscaler
-- Metrics Server
-
-### AWS
-
-- Amazon EKS
-- Amazon ECR
-- Amazon RDS for PostgreSQL
-- Amazon ElastiCache for Redis
-- Amazon DynamoDB
-- Amazon SQS
-- Elastic Load Balancing
-
-### Automação
-
-- GitHub Actions
-- Shell Script
-- AWS CLI
-- kubectl
-- eksctl
-
----
-
-## Estrutura do projeto
-
-O repositório contém os cinco microsserviços e três áreas principais:
-
-- `.github/workflows/`: pipelines de CI e CD;
-- `terraform/`: infraestrutura AWS e módulos reutilizáveis;
-- `gitops/`: aplicações ArgoCD e manifests dos cinco serviços;
-- `localstack/`: emulação local de SQS e DynamoDB;
-- `docs/`: documentação de arquitetura, implantação e testes.
-
----
-
-## Pré-requisitos
-
-Para executar o projeto localmente, é necessário ter instalado:
-
-- Git;
-- Docker Desktop;
-- Docker Compose.
-
-Para realizar o deploy na AWS:
-
-- AWS CLI;
-- kubectl;
-- eksctl;
-- Conta AWS com permissões para ECR, EKS, EC2, RDS, ElastiCache, DynamoDB e SQS.
-
-Verifique as ferramentas:
-
-```bash
-docker --version
-docker compose version
-aws --version
-kubectl version --client
-eksctl version
-```
-
----
-
-## Clonar o repositório
-
-```bash
-git clone https://github.com/Gabrielpalhanogomes2803/tech-challenge-feature-flags.git
-```
-
-Acesse a pasta:
-
-```bash
-cd tech-challenge-feature-flags
-```
-
----
-
-## Execução local
-
-O ambiente local utiliza Docker Compose para iniciar os cinco microsserviços e suas dependências.
-
-Suba todos os containers:
-
-```bash
-docker compose up --build -d
-```
-
-Verifique o status:
-
-```bash
-docker compose ps
-```
-
-O ambiente local deve possuir nove containers:
-
-```text
 auth-service
+
+Go
+
+Gerenciamento de API Keys e autenticação
+
+PostgreSQL
+
 flag-service
+
+Python / Flask
+
+CRUD de Feature Flags
+
+PostgreSQL
+
 targeting-service
+
+Python / Flask
+
+Regras de segmentação
+
+PostgreSQL
+
 evaluation-service
+
+Go
+
+Avaliação das Feature Flags
+
+Redis e Amazon SQS
+
 analytics-service
-postgres-auth
-postgres-main
-redis
-localstack
-```
 
----
+Python
 
-## Portas locais
+Processamento de eventos analíticos
 
-| Serviço | Porta |
-|---|---:|
-| Auth Service | `8001` |
-| Flag Service | `8002` |
-| Targeting Service | `8003` |
-| Evaluation Service | `8004` |
-| Analytics Service | `8005` |
-| LocalStack (SQS e DynamoDB) | `4566` (somente localhost) |
-| PostgreSQL Auth | `5432` |
-| PostgreSQL Main | `5433` |
-| Redis | `6379` |
+Amazon SQS e DynamoDB
 
----
+Fluxo de entrega da Fase 3:
 
-## Health checks
+Código
+  |
+  v
+GitHub Actions - CI / DevSecOps
+  |  testes + lint + SAST + SCA + container scan
+  v
+GitHub Actions - CD
+  |  build + push de imagens com tag SHA
+  v
+Amazon ECR
+  |
+  v
+Atualização automática dos manifests GitOps
+  |
+  v
+ArgoCD
+  |
+  v
+Amazon EKS
 
-Após iniciar o ambiente, valide os microsserviços:
+Infraestrutura AWS com Terraform
 
-```bash
+A infraestrutura é definida em terraform/ e organizada em módulos reutilizáveis.
+
+Principais recursos provisionados:
+
+VPC;
+
+subnets públicas e privadas;
+
+Internet Gateway;
+
+Route Tables;
+
+Amazon EKS;
+
+EKS Node Group;
+
+três instâncias Amazon RDS PostgreSQL;
+
+Amazon ElastiCache for Redis;
+
+tabela DynamoDB ToggleMasterAnalytics;
+
+fila Amazon SQS;
+
+cinco repositórios Amazon ECR;
+
+políticas e permissões necessárias para execução dos serviços.
+
+O estado do Terraform utiliza backend remoto em Amazon S3. O bucket de state é criado separadamente pelo bootstrap localizado em:
+
+terraform/bootstrap/
+
+O bootstrap habilita:
+
+versionamento;
+
+criptografia AES-256;
+
+bloqueio de acesso público.
+
+CI / DevSecOps
+
+O workflow principal está em:
+
+.github/workflows/ci.yml
+
+Ele é executado em Pull Requests para main, pushes em main / fase-3 e também pode ser acionado manualmente.
+
+Controles executados:
+
+Serviços Go
+
+download das dependências;
+
+testes unitários;
+
+go vet;
+
+SAST com Gosec.
+
+Serviços Python
+
+instalação e validação das dependências;
+
+syntax check;
+
+lint com Flake8;
+
+SAST com Bandit.
+
+Segurança do repositório
+
+SCA com Trivy:
+
+scan-type: fs
+scanners: vuln, secret, misconfig
+severity: CRITICAL
+exit-code: 1
+
+Segurança das imagens
+
+Cada microsserviço é construído com a tag do SHA do commit e analisado com Trivy.
+
+Uma vulnerabilidade CRITICAL faz o job falhar e bloqueia a pipeline.
+
+Evidência do security gate
+
+Foi realizada uma demonstração controlada inserindo propositalmente uma dependência vulnerável no analytics-service.
+
+Commit da demonstração:
+
+cde129a  test: demonstrate vulnerable dependency blocking CI
+
+A dependência introduzida foi:
+
+Django==3.0.0
+
+O Trivy identificou vulnerabilidades CRITICAL e a pipeline retornou exit code 1.
+
+A correção foi registrada em:
+
+52a355c  fix: remove vulnerable Django dependency
+
+Após a remoção da dependência vulnerável, os mesmos controles foram executados novamente e a pipeline foi aprovada.
+
+CD, ECR e imagens imutáveis
+
+O workflow de entrega está em:
+
+.github/workflows/main.yml
+
+O CD é executado após a conclusão bem-sucedida do CI na main.
+
+Fluxo:
+
+resolve o SHA do commit aprovado;
+
+faz checkout do commit;
+
+autentica na AWS via GitHub OIDC;
+
+realiza login no Amazon ECR;
+
+constrói as cinco imagens;
+
+publica as imagens com tag baseada no SHA;
+
+atualiza os cinco deployment.yaml;
+
+cria um commit GitOps automático;
+
+envia a alteração para a main.
+
+Exemplo de tag:
+
+<registry>/togglemaster-auth:<commit-sha>
+
+Não é utilizado latest no fluxo de entrega.
+
+GitOps e ArgoCD
+
+Os manifests Kubernetes ficam em:
+
+gitops/
+
+Estrutura principal:
+
+gitops/
+├── argocd/
+├── services/
+│   ├── auth/
+│   ├── flag/
+│   ├── targeting/
+│   ├── evaluation/
+│   └── analytics/
+├── namespace.yaml
+└── runtime-secrets.example.yaml
+
+Cada serviço possui manifests de Deployment, Service e Kustomize.
+
+As cinco Applications do ArgoCD estão declaradas em:
+
+gitops/argocd/applications.yaml
+
+O ArgoCD monitora o repositório e sincroniza automaticamente as alterações com o EKS.
+
+Na validação final da demonstração, as cinco aplicações ficaram Synced e Healthy, com os cinco microsserviços em execução no cluster.
+
+Estrutura do repositório
+
+.github/workflows/   CI DevSecOps e CD
+analytics-service/   Serviço de analytics
+auth-service/        Serviço de autenticação
+evaluation-service/  Serviço de avaliação
+flag-service/        Serviço de flags
+targeting-service/   Serviço de targeting
+terraform/           Infraestrutura AWS
+terraform/bootstrap/ Bootstrap do backend remoto
+gitops/              Manifests Kubernetes e ArgoCD
+scripts/aws/         Automação do ciclo de vida AWS
+localstack/          Recursos locais para SQS/DynamoDB
+docs/                Documentação complementar
+
+Execução local
+
+Para o ambiente local:
+
+docker compose up --build -d
+
+Verifique os containers:
+
+docker compose ps
+
+Health checks:
+
 curl http://localhost:8001/health
 curl http://localhost:8002/health
 curl http://localhost:8003/health
 curl http://localhost:8004/health
 curl http://localhost:8005/health
-```
 
 Resultado esperado:
 
-```json
 {"status":"ok"}
-```
 
----
+Para remover o ambiente local:
 
-## Logs
-
-Visualizar os logs de todos os serviços:
-
-```bash
-docker compose logs -f
-```
-
-Visualizar os logs de um serviço específico:
-
-```bash
-docker compose logs -f auth-service
-```
-
----
-
-## Parar o ambiente local
-
-Parar os containers:
-
-```bash
-docker compose stop
-```
-
-Parar e remover os containers:
-
-```bash
 docker compose down
-```
 
-Remover também os volumes locais:
+Pré-requisitos para AWS
 
-```bash
-docker compose down -v
-```
+Git;
 
-> O uso da opção `-v` remove os dados armazenados nos bancos locais.
+Docker;
 
----
+AWS CLI;
 
-## Imagens Docker
+kubectl;
 
-As imagens dos microsserviços podem ser construídas individualmente:
+conta AWS com as permissões necessárias.
 
-```bash
-docker build -t togglemaster-auth:local ./auth-service
-docker build -t togglemaster-flag:local ./flag-service
-docker build -t togglemaster-targeting:local ./targeting-service
-docker build -t togglemaster-evaluation:local ./evaluation-service
-docker build -t togglemaster-analytics:local ./analytics-service
-```
+O Terraform utilizado pelos scripts AWS é executado dentro de container Docker, por meio das funções presentes em scripts/aws/common.sh.
 
-Também está disponível o script:
+Automação do ambiente AWS
 
-```bash
-./build-and-push.sh
-```
+Os scripts principais estão em scripts/aws/:
 
-Antes de utilizá-lo, revise as variáveis de região, conta AWS e nomes dos repositórios.
+Script
 
----
+Função
 
-## Amazon ECR
+01-login.sh
 
-O projeto utiliza cinco repositórios privados no Amazon ECR:
+valida / inicia a autenticação AWS
 
-```text
-togglemaster-auth
-togglemaster-flag
-togglemaster-targeting
-togglemaster-evaluation
-togglemaster-analytics
-```
+02-provision.sh
 
-As imagens publicadas no ECR são utilizadas pelos Deployments do Kubernetes.
+executa init, fmt, validate, plan e apply do Terraform
 
----
+03-status.sh
 
-## Implantação no Kubernetes com GitOps
+consulta o estado dos principais recursos AWS
 
-Os manifests estão em `gitops/services/`.
+03-sync-gitops.sh
 
-Depois que o CI DevSecOps é aprovado, o CD autentica na AWS usando GitHub OIDC, publica imagens no ECR com a tag do commit e atualiza o diretório GitOps. O ArgoCD detecta essa alteração e sincroniza o EKS automaticamente.
+sincroniza endpoints de runtime e GitOps
 
-As cinco aplicações estão declaradas em `gitops/argocd/applications.yaml`.
+04-open-eks.sh
 
-Secrets preenchidos não são versionados. O formato esperado está em `gitops/runtime-secrets.example.yaml`.
+libera temporariamente o endpoint do EKS para o IP autorizado
 
----
+05-bootstrap-cluster.sh
 
-## Validação do Kubernetes
+configura runtime, bancos, ArgoCD e aplicações
 
-Verifique os nós do cluster:
+06-validate.sh
 
-```bash
-kubectl get nodes
-```
+valida EKS, ArgoCD, deployments e health checks
 
-Verifique os Pods:
+07-argocd-access.sh
 
-```bash
-kubectl get pods -n togglemaster
-```
+fornece acesso local ao ArgoCD
 
-Verifique os Deployments:
+08-close-eks.sh
 
-```bash
-kubectl get deployments -n togglemaster
-```
+fecha o acesso público temporário ao EKS
 
-Verifique os Services:
+09-destroy.sh
 
-```bash
-kubectl get services -n togglemaster
-```
+destrói a infraestrutura principal
 
-Verifique o Ingress:
+Provisionamento
 
-```bash
-kubectl get ingress -n togglemaster
-```
+Com o backend remoto previamente configurado:
 
-Verifique os HPAs:
+cd ~/tech-challenge-feature-flags
+./scripts/aws/01-login.sh
+./scripts/aws/02-provision.sh
 
-```bash
-kubectl get hpa -n togglemaster
-```
+Depois do provisionamento e da publicação das imagens:
 
-Visualize todos os recursos principais:
+./scripts/aws/04-open-eks.sh
+./scripts/aws/05-bootstrap-cluster.sh
+./scripts/aws/06-validate.sh
 
-```bash
-kubectl get all -n togglemaster
-```
+Validação final
 
----
+O script:
 
-## Troubleshooting
+./scripts/aws/06-validate.sh
 
-Ver os logs de um Pod:
+verifica:
 
-```bash
-kubectl logs <NOME_DO_POD> -n togglemaster
-```
+node do EKS;
 
-Acompanhar os logs:
+cinco Applications do ArgoCD;
 
-```bash
-kubectl logs -f <NOME_DO_POD> -n togglemaster
-```
+estado Synced;
 
-Exibir detalhes e eventos:
+estado Healthy;
 
-```bash
-kubectl describe pod <NOME_DO_POD> -n togglemaster
-```
+cinco Deployments;
 
-Listar os eventos do namespace:
+rollout dos microsserviços;
 
-```bash
-kubectl get events -n togglemaster --sort-by='.lastTimestamp'
-```
+health check dos cinco serviços;
 
----
+acesso ao DynamoDB.
 
-## Escalabilidade
+Resultado esperado:
 
-O projeto utiliza Horizontal Pod Autoscaler para os serviços:
+VALIDAÇÃO CONCLUÍDA COM SUCESSO.
 
-- `evaluation-service`;
-- `analytics-service`.
+Limpeza dos recursos AWS
 
-O HPA realiza o ajuste automático da quantidade de réplicas conforme a utilização de CPU.
+Para evitar cobranças após testes ou demonstrações:
 
-Verifique o status:
+cd ~/tech-challenge-feature-flags
+./scripts/aws/09-destroy.sh
 
-```bash
-kubectl get hpa -n togglemaster
-```
+O script exige confirmação explícita:
 
-Para que as métricas sejam exibidas corretamente, o Metrics Server deve estar instalado no cluster.
+DESTROY
 
----
+O 09-destroy.sh remove a infraestrutura principal gerenciada pelo Terraform e preserva, por segurança, o backend S3 e o orçamento AWS.
 
-## Testes realizados
+Caso seja necessário encerrar definitivamente o ambiente, o bucket de state e o orçamento também devem ser revisados e removidos manualmente depois que não forem mais necessários.
 
-Foram realizados testes relacionados a:
+A exclusão do bucket de state impede que o ambiente seja recriado sem antes executar novamente o bootstrap do backend.
 
-- Build das imagens Docker;
-- Execução dos nove containers com Docker Compose;
-- Health check dos cinco microsserviços;
-- Comunicação entre microsserviços;
-- Conexão com PostgreSQL;
-- Uso do Redis;
-- Publicação e consumo de mensagens;
-- Armazenamento no DynamoDB;
-- Aplicação de ConfigMaps e Secrets;
-- Deployments e Services Kubernetes;
-- Roteamento com NGINX Ingress;
-- Escalabilidade com HPA;
-- Execução dos serviços no Amazon EKS.
+Segurança
 
-A documentação detalhada dos testes encontra-se em:
+O projeto adota:
 
-```text
-docs/testes.md
-```
+SAST com Gosec e Bandit;
 
----
+SCA com Trivy;
 
-## Documentação complementar
+container scanning com Trivy;
 
-O repositório contém documentação adicional na pasta `docs`:
+bloqueio para vulnerabilidades CRITICAL;
 
-| Arquivo | Conteúdo |
-|---|---|
-| `docs/arquitetura.md` | Arquitetura da solução |
-| `docs/deploy.md` | Procedimento de implantação |
-| `docs/testes.md` | Testes e validações |
-| `docs/apresentacao.md` | Roteiro para apresentação |
-| `docs/cleanup.md` | Remoção dos recursos AWS |
+GitHub OIDC para autenticação do CD na AWS;
 
-Também existe um arquivo com comandos de validação:
+imagens versionadas por SHA;
 
-```text
-gitops/argocd/applications.yaml
-```
+Secrets fora do Git;
 
----
+credenciais de banco recuperadas em runtime;
 
-## Segurança
+acesso público ao EKS restrito temporariamente por CIDR;
 
-Os arquivos de configuração do repositório utilizam apenas credenciais destinadas ao ambiente de desenvolvimento.
+backend Terraform com versionamento, criptografia e bloqueio público.
 
-Credenciais reais da AWS, tokens, chaves privadas e arquivos `.env` não devem ser versionados.
+Nunca devem ser versionados Access Keys, tokens, senhas, arquivos .env com credenciais, states locais contendo dados sensíveis ou Secrets Kubernetes preenchidos.
 
-Em ambientes produtivos, recomenda-se utilizar:
+Evidências principais da Fase 3
 
-- EKS Pod Identity;
-- AWS Secrets Manager;
-- Kubernetes Secrets;
-- Criptografia com AWS KMS;
-- Política de menor privilégio;
-- Rotação periódica de credenciais.
+cde129a  demonstração de dependência vulnerável
+52a355c  correção da vulnerabilidade
+cd6b9d2  merge da demonstração de segurança
+ba7dd6b  redeploy do ambiente AWS para validação final
+e2a6209  commit GitOps automático da entrega final
 
----
+Fluxo final validado:
 
-## Limpeza dos recursos AWS
+Terraform
+   ↓
+AWS
+   ↓
+CI / DevSecOps
+   ↓
+ECR
+   ↓
+GitOps
+   ↓
+ArgoCD
+   ↓
+EKS
 
-Após os testes, remova os recursos para evitar cobranças desnecessárias.
+Autores
 
-Exemplo de remoção do cluster EKS:
+Gabriel Palhano Gomes
 
-```bash
-eksctl delete cluster \
-  --name togglemaster-cluster \
-  --region us-east-1
-```
+Heloísa Pereira Garcia
 
-Os demais recursos, como RDS, ElastiCache, Load Balancer, DynamoDB, SQS e ECR, também devem ser revisados e removidos quando não forem mais necessários.
+Gustavo Ribeiro Borges
 
-Consulte:
+Susana Sumire Nakasato
 
-```text
-docs/cleanup.md
-```
+João Victor Nunes de Moura
 
----
+Repositório
 
-## Autores
-
-Projeto desenvolvido por:
-
-- Gabriel Palhano Gomes
-- Heloísa Pereira Garcia
-- Gustavo Ribeiro Borges
-- Susana Sumire Nakasato
-- João Victor Nunes de Moura
-
-> Os RMs e usernames do Discord devem ser adicionados no relatório final de entrega.
-
----
-
-## Repositório
-
-```text
 https://github.com/Gabrielpalhanogomes2803/tech-challenge-feature-flags
-```
 
----
-
-## Licença
-
-Projeto desenvolvido para fins acadêmicos como parte do Tech Challenge da Pós-Tech FIAP.
+Projeto acadêmico desenvolvido para o Tech Challenge — Fase 3 da Pós-Tech FIAP.
