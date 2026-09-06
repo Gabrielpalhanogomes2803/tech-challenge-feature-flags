@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: analytics-service
-        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-analytics:cd6b9d2e8f52b5b55fea8f2a21741472ce55b718
+        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-analytics:6a2415c24a75df2e3676ec14e51156e15270976a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
