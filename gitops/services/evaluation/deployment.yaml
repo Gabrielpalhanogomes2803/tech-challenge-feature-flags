@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: evaluation-service
-        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-evaluation:c6d899a8a00b9bcbd9147d05f07708a0e9664da6
+        image: 505142286607.dkr.ecr.us-east-1.amazonaws.com/togglemaster-evaluation:dbb29ea8c5536cfa6e3978fc070dbb3d38297cba
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
