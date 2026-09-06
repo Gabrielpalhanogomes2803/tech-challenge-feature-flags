@@ -1,0 +1,21 @@
+FROM debian:bookworm-slim
+
+ARG TERRAFORM_VERSION=1.13.5
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ca-certificates \
+       curl \
+       groff \
+       less \
+       unzip \
+    && curl -fsSLo /tmp/terraform.zip \
+       "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+    && unzip /tmp/terraform.zip -d /usr/local/bin \
+    && curl -fsSLo /tmp/awscliv2.zip \
+       "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+    && unzip -q /tmp/awscliv2.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/* /var/lib/apt/lists/*
+
+ENTRYPOINT ["terraform"]

@@ -6,8 +6,9 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TERRAFORM_DIR="$PROJECT_ROOT/terraform"
 
 AWS_PROFILE_NAME="${AWS_PROFILE_NAME:-togglemaster}"
+AWS_TERRAFORM_PROFILE="${AWS_TERRAFORM_PROFILE:-togglemaster-terraform}"
 AWS_REGION_NAME="${AWS_REGION_NAME:-us-east-1}"
-TERRAFORM_IMAGE="${TERRAFORM_IMAGE:-hashicorp/terraform:1.13}"
+TERRAFORM_IMAGE="${TERRAFORM_IMAGE:-togglemaster/terraform-aws:1.13}"
 
 ensure_aws_auth() {
   unset AWS_ACCESS_KEY_ID
@@ -28,24 +29,40 @@ ensure_aws_auth() {
     --query '{Account:Account,Arn:Arn}'
 }
 
+ensure_terraform_profile() {
+  aws configure set \
+    credential_process \
+    "/usr/local/bin/aws configure export-credentials --profile $AWS_PROFILE_NAME --format process" \
+    --profile "$AWS_TERRAFORM_PROFILE"
+
+  aws configure set \
+    region "$AWS_REGION_NAME" \
+    --profile "$AWS_TERRAFORM_PROFILE"
+}
+
+ensure_terraform_image() {
+  if ! docker image inspect "$TERRAFORM_IMAGE" >/dev/null 2>&1; then
+    echo "Construindo imagem Terraform + AWS CLI..."
+
+    docker build \
+      -f "$PROJECT_ROOT/scripts/aws/Dockerfile.terraform-aws" \
+      -t "$TERRAFORM_IMAGE" \
+      "$PROJECT_ROOT/scripts/aws"
+  fi
+}
+
 terraform_run() (
   cd "$TERRAFORM_DIR"
 
-  eval "$(
-    aws configure export-credentials \
-      --profile "$AWS_PROFILE_NAME" \
-      --format env
-  )"
-
-  export AWS_REGION="$AWS_REGION_NAME"
-  export AWS_DEFAULT_REGION="$AWS_REGION_NAME"
+  ensure_terraform_profile
+  ensure_terraform_image
 
   docker run --rm \
-    -e AWS_ACCESS_KEY_ID \
-    -e AWS_SECRET_ACCESS_KEY \
-    -e AWS_SESSION_TOKEN \
-    -e AWS_REGION \
-    -e AWS_DEFAULT_REGION \
+    -e AWS_PROFILE="$AWS_TERRAFORM_PROFILE" \
+    -e AWS_REGION="$AWS_REGION_NAME" \
+    -e AWS_DEFAULT_REGION="$AWS_REGION_NAME" \
+    -e AWS_SDK_LOAD_CONFIG=1 \
+    -v "$HOME/.aws:/root/.aws" \
     -v "$TERRAFORM_DIR:/workspace" \
     -w /workspace \
     "$TERRAFORM_IMAGE" "$@"
