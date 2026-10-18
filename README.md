@@ -283,9 +283,10 @@ curl http://localhost:8003/health
 curl http://localhost:8004/health
 curl http://localhost:8005/health
 
-Resultado esperado:
-
-{"status":"ok"}
+Resultado esperado: `"status": "ok"` em todos. O `/health` checa a dependência
+real de cada serviço (PostgreSQL, Redis ou DynamoDB/SQS) e retorna `503` com
+`"status": "degraded"` quando ela está fora. O `/live` só indica que o processo
+está de pé e é usado como liveness probe no Kubernetes.
 
 Para remover o ambiente local:
 

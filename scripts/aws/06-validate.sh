@@ -89,6 +89,10 @@ do
 done
 
 echo
+echo "=== HPA ==="
+kubectl get hpa --namespace togglemaster
+
+echo
 echo "=== HEALTH CHECKS ==="
 
 declare -a PIDS=()

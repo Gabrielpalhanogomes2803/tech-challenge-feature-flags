@@ -106,12 +106,10 @@ Tabelas:
 ## Infraestrutura Kubernetes
 
 - Namespace
-- ConfigMap
-- Secret
-- Deployments
-- Services
-- Ingress NGINX
-- Horizontal Pod Autoscaler (HPA)
+- Secret de runtime
+- Deployments com probes de readiness (`/health`, checa banco/Redis/AWS) e liveness (`/live`)
+- Services (ClusterIP, acesso externo via `kubectl port-forward`)
+- Horizontal Pod Autoscaler (HPA) no evaluation-service, com metrics-server
 
 ---
 

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
 type EvaluationResponse struct {
@@ -12,7 +14,27 @@ type EvaluationResponse struct {
 	Result   bool   `json:"result"`
 }
 
+// healthHandler é o readiness: só responde ok se o Redis responder.
 func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := a.RedisClient.Ping(ctx).Err(); err != nil {
+		log.Printf("Health check falhou: Redis indisponível: %v", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{"status": "degraded", "redis": "down"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "redis": "up"})
+}
+
+// liveHandler é o liveness: só indica que o processo está de pé.
+// Não checa dependências para o pod não ser reiniciado por falha do Redis.
+func (a *App) liveHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})

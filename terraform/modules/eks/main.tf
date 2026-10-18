@@ -122,6 +122,16 @@ resource "aws_eks_addon" "pod_identity_agent" {
   tags = var.tags
 }
 
+# Fornece a API de métricas (CPU/memória) usada pelo HPA do evaluation-service.
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "metrics-server"
+
+  depends_on = [aws_eks_node_group.this]
+
+  tags = var.tags
+}
+
 resource "aws_iam_role" "evaluation" {
   name = "${var.name_prefix}-evaluation-role"
 

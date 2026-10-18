@@ -56,6 +56,7 @@ func main() {
 
 	// Rotas
 	mux.HandleFunc("/health", app.healthHandler)
+	mux.HandleFunc("/live", app.liveHandler)
 	mux.HandleFunc("/validate", app.validateKeyHandler)
 
 	mux.Handle(
