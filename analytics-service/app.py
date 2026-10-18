@@ -132,6 +132,11 @@ def health():
         log.error(f"Health check falhou: {error}")
         return jsonify({"status": "degraded"}), 503
 
+@app.route('/live')
+def live():
+    """ Liveness: não checa dependências para o pod não reiniciar por falha da AWS. """
+    return jsonify({"status": "ok"})
+
 # --- Inicialização ---
 
 def start_worker():

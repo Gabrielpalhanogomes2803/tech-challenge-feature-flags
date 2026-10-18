@@ -86,12 +86,20 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: togglemaster
+  # O HPA controla o número de réplicas; o Argo CD não deve revertê-lo.
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    name: evaluation-service
+    jsonPointers:
+    - /spec/replicas
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
 
 ---
 apiVersion: argoproj.io/v1alpha1

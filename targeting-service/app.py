@@ -66,6 +66,22 @@ def require_auth(f):
 
 @app.route('/health')
 def health():
+    """ Readiness: só responde ok se o PostgreSQL responder. """
+    conn = None
+    try:
+        conn = pool.getconn()
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        return jsonify({"status": "ok", "database": "up"})
+    except Exception as e:
+        log.error(f"Health check falhou: banco indisponível: {e}")
+        return jsonify({"status": "degraded", "database": "down"}), 503
+    finally:
+        if conn: pool.putconn(conn)
+
+@app.route('/live')
+def live():
+    """ Liveness: não checa dependências para o pod não reiniciar por falha do banco. """
     return jsonify({"status": "ok"})
 
 @app.route('/rules', methods=['POST'])

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type CreateKeyRequest struct {
@@ -17,11 +19,36 @@ type CreateKeyResponse struct {
 	Message string `json:"message"`
 }
 
+// healthHandler é o readiness: só responde ok se o PostgreSQL responder.
 func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := a.DB.PingContext(ctx); err != nil {
+		log.Printf("Health check falhou: banco indisponível: %v", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":   "degraded",
+			"database": "down",
+		})
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
+		"status":   "ok",
+		"database": "up",
 	})
+}
+
+// liveHandler é o liveness: só indica que o processo está de pé.
+// Não checa dependências para o pod não ser reiniciado por falha do banco.
+func (a *App) liveHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func (a *App) validateKeyHandler(w http.ResponseWriter, r *http.Request) {

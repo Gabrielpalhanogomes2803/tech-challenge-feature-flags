@@ -9,7 +9,6 @@ metadata:
 spec:
   strategy:
     type: Recreate
-  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: evaluation-service
@@ -57,7 +56,7 @@ spec:
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /health
+            path: /live
             port: http
           initialDelaySeconds: 15
           periodSeconds: 20

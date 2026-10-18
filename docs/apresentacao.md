@@ -38,10 +38,9 @@ Apresentação dos recursos:
 - Namespace
 - Deployments
 - Services
-- ConfigMap
 - Secret
-- Ingress
-- HPA
+- HPA (`kubectl get hpa -n togglemaster`)
+- Health checks de readiness (`/health`) e liveness (`/live`)
 
 ---
 
