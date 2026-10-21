@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: flag-service
+  namespace: togglemaster
+  labels:
+    app.kubernetes.io/name: flag-service
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flag-service

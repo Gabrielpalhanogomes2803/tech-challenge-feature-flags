@@ -8,7 +8,10 @@ metadata:
     app.kubernetes.io/part-of: togglemaster
 spec:
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: evaluation-service
@@ -18,6 +21,13 @@ spec:
         app.kubernetes.io/name: evaluation-service
         app.kubernetes.io/part-of: togglemaster
     spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: evaluation-service
       serviceAccountName: evaluation-service
       securityContext:
         runAsNonRoot: true

@@ -7,9 +7,12 @@ metadata:
     app.kubernetes.io/name: flag-service
     app.kubernetes.io/part-of: togglemaster
 spec:
+  replicas: 2
   strategy:
-    type: Recreate
-  replicas: 1
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: flag-service
@@ -19,6 +22,13 @@ spec:
         app.kubernetes.io/name: flag-service
         app.kubernetes.io/part-of: togglemaster
     spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: flag-service
       securityContext:
         runAsNonRoot: true
         seccompProfile:
