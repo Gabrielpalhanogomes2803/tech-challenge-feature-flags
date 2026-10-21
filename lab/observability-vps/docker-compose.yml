@@ -1,0 +1,90 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: fiap-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - fiap-prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9190:9090"
+    networks:
+      - fiap-observability
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: fiap-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - fiap-observability
+
+  loki:
+    image: grafana/loki:3.6.18
+    container_name: fiap-loki
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - fiap-loki-data:/loki
+    ports:
+      - "127.0.0.1:3200:3100"
+    networks:
+      - fiap-observability
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: fiap-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - fiap-alloy-data:/var/lib/alloy/data
+    networks:
+      - fiap-observability
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    container_name: fiap-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ENABLE_GZIP: "true"
+    volumes:
+      - fiap-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3300:3000"
+    networks:
+      - fiap-observability
+    depends_on:
+      - prometheus
+      - loki
+
+networks:
+  fiap-observability:
+    name: fiap-observability
+
+volumes:
+  fiap-prometheus-data:
+  fiap-loki-data:
+  fiap-grafana-data:
+  fiap-alloy-data:
