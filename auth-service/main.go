@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	"os"
 
@@ -10,17 +9,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// App struct (para injeção de dependência)
 type App struct {
 	DB        *sql.DB
 	MasterKey string
 }
 
 func main() {
-	// Carrega .env localmente
 	_ = godotenv.Load()
 
-	// Configuração
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8001"
@@ -28,23 +24,36 @@ func main() {
 
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		log.Fatal("DATABASE_URL não definida")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "DATABASE_URL is not configured",
+		})
 	}
 
 	masterKey := os.Getenv("MASTER_KEY")
 	if masterKey == "" {
-		log.Fatal("MASTER_KEY não definida")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "MASTER_KEY is not configured",
+		})
 	}
 
-	// Conecta ao banco
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
-		log.Fatalf("Erro ao conectar no banco: %v", err)
+		fatalLog("database_connection_failed", LogEvent{
+			Component:  "database",
+			Dependency: "postgresql",
+			Message:    "failed to initialize database connection",
+		})
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		log.Fatalf("Banco não responde: %v", err)
+		fatalLog("database_connection_failed", LogEvent{
+			Component:  "database",
+			Dependency: "postgresql",
+			Message:    "database ping failed",
+		})
 	}
 
 	app := &App{
@@ -53,8 +62,6 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-
-	// Rotas
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/live", app.liveHandler)
 	mux.HandleFunc("/validate", app.validateKeyHandler)
@@ -64,10 +71,15 @@ func main() {
 		app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)),
 	)
 
-	log.Printf("auth-service rodando na porta %s", port)
+	writeLog("info", "service_started", LogEvent{
+		Component: "http-server",
+		Message:   "auth-service started",
+	})
 
-	err = http.ListenAndServe(":"+port, mux)
-	if err != nil {
-		log.Fatalf("Erro ao iniciar servidor: %v", err)
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
+		fatalLog("http_server_failed", LogEvent{
+			Component: "http-server",
+			Message:   "HTTP server stopped unexpectedly",
+		})
 	}
 }

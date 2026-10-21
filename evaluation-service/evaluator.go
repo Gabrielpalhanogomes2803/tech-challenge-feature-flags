@@ -5,8 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,59 +13,85 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-redis/redis/v8"
 )
 
 const (
-	// Tempo de vida do cache em segundos
 	CACHE_TTL = 30 * time.Second
 )
 
-// getDecision é o wrapper principal
 func (a *App) getDecision(userID, flagName string) (bool, error) {
-	// 1. Obter os dados da flag (do cache ou dos serviços)
 	info, err := a.getCombinedFlagInfo(flagName)
 	if err != nil {
 		return false, err
 	}
 
-	// 2. Executar a lógica de avaliação
 	return a.runEvaluationLogic(info, userID), nil
 }
 
-// getCombinedFlagInfo busca os dados no Redis, com fallback para os microsserviços
 func (a *App) getCombinedFlagInfo(flagName string) (*CombinedFlagInfo, error) {
 	cacheKey := fmt.Sprintf("flag_info:%s", flagName)
 
-	// 1. Tentar buscar do Cache (Redis)
 	val, err := a.RedisClient.Get(ctx, cacheKey).Result()
+
 	if err == nil {
-		// Cache HIT
 		var info CombinedFlagInfo
+
 		if err := json.Unmarshal([]byte(val), &info); err == nil {
-			log.Printf("Cache HIT para flag '%s'", flagName)
+			writeLog("info", "cache_hit", LogEvent{
+				Component:  "cache",
+				Dependency: "redis",
+			})
+
 			return &info, nil
 		}
-		// Se o unmarshal falhar, trata como cache miss
-		log.Printf("Erro ao desserializar cache para flag '%s': %v", flagName, err)
+
+		writeLog("warn", "cache_deserialize_error", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "failed to decode cached value",
+		})
+	} else if err != redis.Nil {
+		writeLog("error", "redis_error", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "failed to read cache",
+		})
 	}
 
-	log.Printf("Cache MISS para flag '%s'", flagName)
-	// 2. Cache MISS - Buscar dos serviços
+	writeLog("info", "cache_miss", LogEvent{
+		Component:  "cache",
+		Dependency: "redis",
+	})
+
 	info, err := a.fetchFromServices(flagName)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Salvar no Cache
 	jsonData, err := json.Marshal(info)
-	if err == nil {
-		a.RedisClient.Set(ctx, cacheKey, jsonData, CACHE_TTL).Err()
+	if err != nil {
+		writeLog("warn", "cache_serialize_error", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "failed to encode cache value",
+		})
+
+		return info, nil
+	}
+
+	if err := a.RedisClient.Set(ctx, cacheKey, jsonData, CACHE_TTL).Err(); err != nil {
+		writeLog("error", "redis_error", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "failed to update cache",
+		})
 	}
 
 	return info, nil
 }
 
-// fetchFromServices busca dados do flag-service e targeting-service concorrentemente
 func (a *App) fetchFromServices(flagName string) (*CombinedFlagInfo, error) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -75,13 +100,11 @@ func (a *App) fetchFromServices(flagName string) (*CombinedFlagInfo, error) {
 	var ruleInfo *TargetingRule
 	var flagErr, ruleErr error
 
-	// Goroutine 1: Buscar do flag-service
 	go func() {
 		defer wg.Done()
 		flagInfo, flagErr = a.fetchFlag(flagName)
 	}()
 
-	// Goroutine 2: Buscar do targeting-service
 	go func() {
 		defer wg.Done()
 		ruleInfo, ruleErr = a.fetchRule(flagName)
@@ -90,10 +113,21 @@ func (a *App) fetchFromServices(flagName string) (*CombinedFlagInfo, error) {
 	wg.Wait()
 
 	if flagErr != nil {
+		writeLog("error", "dependency_error", LogEvent{
+			Component:  "http-client",
+			Dependency: "flag-service",
+			Message:    "failed to retrieve flag",
+		})
+
 		return nil, flagErr
 	}
+
 	if ruleErr != nil {
-		log.Printf("Aviso: Nenhuma regra de segmentação encontrada para '%s'. Usando padrão.", flagName)
+		writeLog("warn", "dependency_degraded", LogEvent{
+			Component:  "http-client",
+			Dependency: "targeting-service",
+			Message:    "targeting rule unavailable, using default behavior",
+		})
 	}
 
 	return &CombinedFlagInfo{
@@ -126,8 +160,9 @@ func buildServiceURL(baseURL, resource, flagName string) (string, error) {
 		"/" + resource + "/" + url.PathEscape(flagName), nil
 }
 
-// fetchFlag (função helper)
 func (a *App) fetchFlag(flagName string) (*Flag, error) {
+	started := time.Now()
+
 	endpoint, err := buildServiceURL(a.FlagServiceURL, "flags", flagName)
 	if err != nil {
 		return nil, fmt.Errorf("URL do flag-service inválida: %w", err)
@@ -140,28 +175,47 @@ func (a *App) fetchFlag(flagName string) (*Flag, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar requisição para flag-service: %w", err)
 	}
+
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// #nosec G704 -- endpoint foi validado por buildServiceURL.
 	resp, err := a.HttpClient.Do(req)
 	if err != nil {
+		writeLog("error", "dependency_error", LogEvent{
+			Component:  "http-client",
+			Dependency: "flag-service",
+			DurationMS: time.Since(started).Milliseconds(),
+			Message:    "request failed",
+		})
+
 		return nil, fmt.Errorf("erro ao chamar flag-service: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, &NotFoundError{flagName}
 	}
+
 	if resp.StatusCode != http.StatusOK {
+		writeLog("error", "dependency_error", LogEvent{
+			Component:  "http-client",
+			Dependency: "flag-service",
+			StatusCode: resp.StatusCode,
+			DurationMS: time.Since(started).Milliseconds(),
+			Message:    "unexpected response status",
+		})
+
 		return nil, fmt.Errorf("flag-service retornou status %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler resposta do flag-service: %w", err)
 	}
 
 	var flag Flag
+
 	if err := json.Unmarshal(body, &flag); err != nil {
 		return nil, fmt.Errorf("erro ao desserializar resposta do flag-service: %w", err)
 	}
@@ -170,6 +224,8 @@ func (a *App) fetchFlag(flagName string) (*Flag, error) {
 }
 
 func (a *App) fetchRule(flagName string) (*TargetingRule, error) {
+	started := time.Now()
+
 	endpoint, err := buildServiceURL(a.TargetingServiceURL, "rules", flagName)
 	if err != nil {
 		return nil, fmt.Errorf("URL do targeting-service inválida: %w", err)
@@ -182,28 +238,47 @@ func (a *App) fetchRule(flagName string) (*TargetingRule, error) {
 	if err != nil {
 		return nil, fmt.Errorf("erro ao criar requisição para targeting-service: %w", err)
 	}
+
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	// #nosec G704 -- endpoint foi validado por buildServiceURL.
 	resp, err := a.HttpClient.Do(req)
 	if err != nil {
+		writeLog("error", "dependency_error", LogEvent{
+			Component:  "http-client",
+			Dependency: "targeting-service",
+			DurationMS: time.Since(started).Milliseconds(),
+			Message:    "request failed",
+		})
+
 		return nil, fmt.Errorf("erro ao chamar targeting-service: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, &NotFoundError{flagName}
 	}
+
 	if resp.StatusCode != http.StatusOK {
+		writeLog("error", "dependency_error", LogEvent{
+			Component:  "http-client",
+			Dependency: "targeting-service",
+			StatusCode: resp.StatusCode,
+			DurationMS: time.Since(started).Milliseconds(),
+			Message:    "unexpected response status",
+		})
+
 		return nil, fmt.Errorf("targeting-service retornou status %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler resposta do targeting-service: %w", err)
 	}
 
 	var rule TargetingRule
+
 	if err := json.Unmarshal(body, &rule); err != nil {
 		return nil, fmt.Errorf("erro ao desserializar resposta do targeting-service: %w", err)
 	}
@@ -211,7 +286,6 @@ func (a *App) fetchRule(flagName string) (*TargetingRule, error) {
 	return &rule, nil
 }
 
-// runEvaluationLogic é onde a decisão é tomada
 func (a *App) runEvaluationLogic(info *CombinedFlagInfo, userID string) bool {
 	if info.Flag == nil || !info.Flag.IsEnabled {
 		return false
@@ -221,17 +295,20 @@ func (a *App) runEvaluationLogic(info *CombinedFlagInfo, userID string) bool {
 		return true
 	}
 
-	// 3. Processa a regra (só temos "PERCENTAGE" por enquanto)
 	rule := info.Rule.Rules
+
 	if rule.Type == "PERCENTAGE" {
-		// Converte o 'value' (que é interface{}) para float64
 		percentage, ok := rule.Value.(float64)
+
 		if !ok {
-			log.Printf("Erro: valor da regra de porcentagem não é um número para a flag '%s'", info.Flag.Name)
+			writeLog("error", "evaluation_failed", LogEvent{
+				Component: "evaluation",
+				Message:   "percentage rule contains invalid value",
+			})
+
 			return false
 		}
 
-		// Calcula o "bucket" do usuário (0-99)
 		userBucket := getDeterministicBucket(userID + info.Flag.Name)
 
 		if float64(userBucket) < percentage {
@@ -243,14 +320,11 @@ func (a *App) runEvaluationLogic(info *CombinedFlagInfo, userID string) bool {
 }
 
 func getDeterministicBucket(input string) int {
-	// Usamos SHA1 (rápido) e pegamos os primeiros 4 bytes
 	hasher := sha1.New()
 	hasher.Write([]byte(input))
 	hash := hasher.Sum(nil)
 
-	// Converte 4 bytes para um uint32
 	val := binary.BigEndian.Uint32(hash[:4])
 
-	// Retorna o módulo 100
 	return int(val % 100)
 }
