@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -19,7 +18,6 @@ type CreateKeyResponse struct {
 	Message string `json:"message"`
 }
 
-// healthHandler é o readiness: só responde ok se o PostgreSQL responder.
 func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -27,7 +25,13 @@ func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := a.DB.PingContext(ctx); err != nil {
-		log.Printf("Health check falhou: banco indisponível: %v", err)
+		writeLog("error", "health_check_failed", LogEvent{
+			Component:  "database",
+			Dependency: "postgresql",
+			StatusCode: http.StatusServiceUnavailable,
+			Message:    "database unavailable",
+		})
+
 		w.WriteHeader(http.StatusServiceUnavailable)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status":   "degraded",
@@ -43,8 +47,6 @@ func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// liveHandler é o liveness: só indica que o processo está de pé.
-// Não checa dependências para o pod não ser reiniciado por falha do banco.
 func (a *App) liveHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -52,11 +54,16 @@ func (a *App) liveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) validateKeyHandler(w http.ResponseWriter, r *http.Request) {
-
 	authHeader := r.Header.Get("Authorization")
 	keyString := strings.TrimPrefix(authHeader, "Bearer ")
 
 	if keyString == "" {
+		writeLog("warn", "auth_validation_failed", LogEvent{
+			Component:  "authentication",
+			StatusCode: http.StatusUnauthorized,
+			Message:    "authorization header missing",
+		})
+
 		http.Error(w, "Authorization header não encontrado", http.StatusUnauthorized)
 		return
 	}
@@ -71,10 +78,20 @@ func (a *App) validateKeyHandler(w http.ResponseWriter, r *http.Request) {
 	).Scan(&id)
 
 	if err != nil {
-		log.Printf("Falha validação chave: %v", err)
+		writeLog("warn", "auth_validation_failed", LogEvent{
+			Component:  "authentication",
+			StatusCode: http.StatusUnauthorized,
+			Message:    "API key validation failed",
+		})
+
 		http.Error(w, "Chave de API inválida ou inativa", http.StatusUnauthorized)
 		return
 	}
+
+	writeLog("info", "auth_validation_success", LogEvent{
+		Component:  "authentication",
+		StatusCode: http.StatusOK,
+	})
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -83,7 +100,6 @@ func (a *App) validateKeyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		return
@@ -102,7 +118,6 @@ func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newKey, err := generateAPIKey()
-
 	if err != nil {
 		http.Error(w, "Erro ao gerar chave", http.StatusInternalServerError)
 		return
@@ -119,10 +134,21 @@ func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 	).Scan(&newID)
 
 	if err != nil {
-		log.Printf("Erro banco: %v", err)
+		writeLog("error", "database_error", LogEvent{
+			Component:  "database",
+			Dependency: "postgresql",
+			StatusCode: http.StatusInternalServerError,
+			Message:    "failed to persist API key",
+		})
+
 		http.Error(w, "Erro ao salvar chave", http.StatusInternalServerError)
 		return
 	}
+
+	writeLog("info", "api_key_created", LogEvent{
+		Component:  "authentication",
+		StatusCode: http.StatusCreated,
+	})
 
 	w.WriteHeader(http.StatusCreated)
 
@@ -134,13 +160,17 @@ func (a *App) createKeyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) masterKeyAuthMiddleware(next http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		authHeader := r.Header.Get("Authorization")
 		keyString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		if keyString != a.MasterKey {
+			writeLog("warn", "auth_validation_failed", LogEvent{
+				Component:  "authentication",
+				StatusCode: http.StatusForbidden,
+				Message:    "master key validation failed",
+			})
+
 			http.Error(w, "Acesso não autorizado", http.StatusForbidden)
 			return
 		}

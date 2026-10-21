@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -14,10 +13,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Contexto global para o Redis
 var ctx = context.Background()
 
-// App struct para injeção de dependência
 type App struct {
 	RedisClient         *redis.Client
 	SqsSvc              *sqs.SQS
@@ -28,9 +25,8 @@ type App struct {
 }
 
 func main() {
-	_ = godotenv.Load() // Carrega .env para dev local
+	_ = godotenv.Load()
 
-	// --- Configuração ---
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8004"
@@ -38,47 +34,68 @@ func main() {
 
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		log.Fatal("REDIS_URL deve ser definida (ex: redis://localhost:6379)")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "REDIS_URL is not configured",
+		})
 	}
 
 	flagSvcURL := os.Getenv("FLAG_SERVICE_URL")
 	if flagSvcURL == "" {
-		log.Fatal("FLAG_SERVICE_URL deve ser definida")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "FLAG_SERVICE_URL is not configured",
+		})
 	}
 
 	targetingSvcURL := os.Getenv("TARGETING_SERVICE_URL")
 	if targetingSvcURL == "" {
-		log.Fatal("TARGETING_SERVICE_URL deve ser definida")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "TARGETING_SERVICE_URL is not configured",
+		})
 	}
 
-	// SQS é opcional no dev local, mas obrigatório em prod
 	sqsQueueURL := os.Getenv("AWS_SQS_URL")
 	awsEndpointURL := os.Getenv("AWS_ENDPOINT_URL")
 	awsRegion := os.Getenv("AWS_REGION")
-	if sqsQueueURL == "" {
-		log.Println("Atenção: AWS_SQS_URL não definida. Eventos não serão enviados.")
-	}
+
 	if awsRegion == "" && sqsQueueURL != "" {
-		log.Fatal("AWS_REGION deve ser definida para usar SQS")
+		fatalLog("required_configuration_missing", LogEvent{
+			Component: "configuration",
+			Message:   "AWS_REGION is required when SQS is enabled",
+		})
 	}
 
-	// --- Inicializa Clientes ---
-	
-	// Cliente Redis
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		log.Fatalf("Não foi possível parsear a URL do Redis: %v", err)
+		fatalLog("redis_configuration_error", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "failed to parse Redis URL",
+		})
 	}
-	rdb := redis.NewClient(opt)
-	if _, err := rdb.Ping(ctx).Result(); err != nil {
-		log.Fatalf("Não foi possível conectar ao Redis: %v", err)
-	}
-	log.Println("Conectado ao Redis com sucesso!")
 
-	// Cliente SQS (AWS SDK)
+	rdb := redis.NewClient(opt)
+
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		fatalLog("redis_connection_failed", LogEvent{
+			Component:  "cache",
+			Dependency: "redis",
+			Message:    "Redis ping failed",
+		})
+	}
+
+	writeLog("info", "redis_connected", LogEvent{
+		Component:  "cache",
+		Dependency: "redis",
+	})
+
 	var sqsSvc *sqs.SQS
+
 	if sqsQueueURL != "" {
 		awsConfig := &aws.Config{Region: aws.String(awsRegion)}
+
 		if awsEndpointURL != "" {
 			awsConfig.Endpoint = aws.String(awsEndpointURL)
 			awsConfig.DisableSSL = aws.Bool(true)
@@ -86,18 +103,25 @@ func main() {
 
 		sess, err := session.NewSession(awsConfig)
 		if err != nil {
-			log.Fatalf("Não foi possível criar sessão AWS: %v", err)
+			fatalLog("aws_client_initialization_failed", LogEvent{
+				Component:  "queue",
+				Dependency: "sqs",
+				Message:    "failed to initialize AWS session",
+			})
 		}
+
 		sqsSvc = sqs.New(sess)
-		log.Println("Cliente SQS inicializado com sucesso.")
+
+		writeLog("info", "sqs_client_initialized", LogEvent{
+			Component:  "queue",
+			Dependency: "sqs",
+		})
 	}
 
-	// Cliente HTTP (com timeout)
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 
-	// Cria a instância da App
 	app := &App{
 		RedisClient:         rdb,
 		SqsSvc:              sqsSvc,
@@ -107,14 +131,20 @@ func main() {
 		TargetingServiceURL: targetingSvcURL,
 	}
 
-	// --- Rotas ---
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/live", app.liveHandler)
 	mux.HandleFunc("/evaluate", app.evaluationHandler)
 
-	log.Printf("Serviço de Avaliação (Go) rodando na porta %s", port)
+	writeLog("info", "service_started", LogEvent{
+		Component: "http-server",
+		Message:   "evaluation-service started",
+	})
+
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
-		log.Fatal(err)
+		fatalLog("http_server_failed", LogEvent{
+			Component: "http-server",
+			Message:   "HTTP server stopped unexpectedly",
+		})
 	}
 }
