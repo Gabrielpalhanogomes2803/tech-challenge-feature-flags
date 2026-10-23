@@ -1,3 +1,64 @@
+# ToggleMaster | Feature Flags, GitOps e Observabilidade
+
+**FIAP Pós-Tech · Tech Challenge · Fases 3 e 4**
+
+Plataforma de gerenciamento e avaliação de *feature flags* com cinco microsserviços, infraestrutura AWS provisionada por Terraform, entrega contínua via GitHub Actions/ECR/Argo CD e observabilidade no Amazon EKS.
+
+> **Estado da última vistoria — 23/10/2026:** 11 aplicações Argo CD `Synced/Healthy`; 2 nós monitorados; 5 microsserviços com 10/10 réplicas; Grafana **Operations Center V9** (37 elementos); logs dos cinco serviços consultáveis no Loki; 5/5 sondagens HTTP saudáveis, com resposta 200. São evidências pontuais, não garantia de disponibilidade permanente.
+
+## Arquitetura e fluxo
+
+```text
+GitHub Actions (CI/DevSecOps) -> ECR -> GitOps/Argo CD -> EKS
+                                                       |
+                         +-----------------------------+---------------------+
+                         |                             |                     |
+                  5 microsserviços              Prometheus + Blackbox    Alloy -> Loki
+                         |                             |                     |
+                  PostgreSQL/Redis/SQS/DynamoDB       +---------- Grafana <-+
+```
+
+**Serviços:** `auth` (Go), `flag` (Python/Flask), `targeting` (Python/Flask), `evaluation` (Go) e `analytics` (Python).
+
+**Observabilidade Fase 4:** Prometheus coleta métricas de cluster/serviços; Blackbox Exporter verifica os endpoints `/health`; Alloy encaminha logs do Kubernetes para Loki; Grafana centraliza saúde, réplicas, CPU/RAM, tendências, logs, erros e latência HTTP. O dashboard é versionado em `gitops/monitoring/grafana/dashboards/eks-dashboard-configmap.yaml` e implantado via Argo CD.
+
+## Evidências e documentação
+
+- [Vistoria técnica de observabilidade — 23/10/2026](docs/observabilidade-vistoria-2026-10-23.md)
+- [Passagem técnica para João — OpenTelemetry](docs/handoff-joao-opentelemetry.md)
+- [Limpeza e verificação de recursos AWS](docs/cleanup.md)
+- [Arquitetura](docs/arquitetura.md)
+
+## Acesso e verificação rápida
+
+O serviço Grafana é `ClusterIP`, sem URL pública permanente. Com acesso autorizado ao cluster, executar localmente:
+
+```bash
+kubectl -n argocd get applications
+kubectl -n monitoring get pods,pvc
+kubectl -n monitoring port-forward svc/togglemaster-grafana 3001:80
+```
+
+Abrir `http://localhost:3001` **na máquina que executa o comando**, usando credenciais existentes; não publicar credenciais ou expor a interface à internet. Dashboard: **Dashboards → ToggleMaster → ToggleMaster | Operations Center**. No CloudShell, a prévia web pode ter restrições de porta.
+
+## Pendências e limites conhecidos
+
+- A janela de 15 minutos apresentou `JSONParserErr` em algumas linhas do Loki; investigar a consulta LogQL e a formatação mista de logs antes de tratar essas entradas como falhas da aplicação.
+- Há avisos de servidor de desenvolvimento em logs de serviços Python; revisar a execução para uso fora do laboratório.
+- Ainda são necessários testes de carga e validação de alertas, tracing/APM e self-healing pelos responsáveis.
+- OpenTelemetry Collector (João): alinhar a topologia com o Alloy para **não duplicar a ingestão de logs**.
+- As evidências descrevem um instante de execução. O ambiente pode ser desligado após a demonstração; o GitHub não comprova que a AWS permanece ligada.
+
+## Encerramento seguro da AWS
+
+**Não executar destroy enquanto outros integrantes estiverem usando o EKS, os bancos, Redis, SQS ou outros recursos.** Após aprovação da equipe, conferir conta/região, backend/state e plano de destruição; o script `scripts/aws/09-destroy.sh` exige digitar `DESTROY` e aplica `terraform plan -destroy`. O script preserva o bucket de state e o orçamento AWS; recursos fora do state precisam de verificação separada. Não versionar state, credenciais ou segredos.
+
+---
+
+## Histórico técnico — Fase 3
+
+O conteúdo abaixo preserva os detalhes originais de CI/CD, Terraform, EKS e segurança da Fase 3.
+
 ToggleMaster — Tech Challenge Fase 3
 
 Plataforma distribuída para gerenciamento e avaliação de Feature Flags, desenvolvida como parte do Tech Challenge — Fase 3 da Pós-Tech FIAP.
