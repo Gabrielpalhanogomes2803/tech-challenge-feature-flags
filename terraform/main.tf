@@ -41,11 +41,11 @@ module "sqs" {
 module "database" {
   source = "./modules/database"
 
-  name_prefix        = local.name_prefix
-  vpc_id             = module.network.vpc_id
-  vpc_cidr_block     = module.network.vpc_cidr_block
-  private_subnet_ids = module.network.private_subnet_ids
-
+  name_prefix           = local.name_prefix
+  vpc_id                = module.network.vpc_id
+  vpc_cidr_block        = module.network.vpc_cidr_block
+  private_subnet_ids    = module.network.private_subnet_ids
+  eks_security_group_id = module.eks.cluster_security_group_id
   databases = {
     auth      = "auth_db"
     flag      = "flags_db"
@@ -63,7 +63,8 @@ module "redis" {
   vpc_cidr_block     = module.network.vpc_cidr_block
   private_subnet_ids = module.network.private_subnet_ids
 
-  tags = local.common_tags
+  tags                  = local.common_tags
+  eks_security_group_id = module.eks.cluster_security_group_id
 }
 
 module "eks" {
@@ -73,6 +74,8 @@ module "eks" {
   private_subnet_ids = module.network.private_subnet_ids
   sqs_queue_arn      = module.sqs.queue_arn
   dynamodb_table_arn = module.dynamodb.table_arn
+
+  eks_public_access_cidrs = var.eks_public_access_cidrs
 
   tags = local.common_tags
 }

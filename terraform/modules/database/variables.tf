@@ -38,3 +38,8 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "eks_security_group_id" {
+  description = "Security Group do EKS autorizado a acessar o PostgreSQL."
+  type        = string
+}

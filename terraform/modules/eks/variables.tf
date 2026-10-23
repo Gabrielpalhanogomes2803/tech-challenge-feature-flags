@@ -8,7 +8,7 @@ variable "private_subnet_ids" {
 
 variable "node_instance_types" {
   type    = list(string)
-  default = ["t3.medium"]
+  default = ["t3a.large"]
 }
 
 variable "tags" {
@@ -24,4 +24,9 @@ variable "sqs_queue_arn" {
 variable "dynamodb_table_arn" {
   description = "ARN da tabela utilizada pelo analytics-service."
   type        = string
+}
+variable "eks_public_access_cidrs" {
+  description = "CIDRs autorizados a acessar a API publica do EKS"
+  type        = list(string)
+  default     = []
 }

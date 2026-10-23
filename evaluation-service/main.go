@@ -13,8 +13,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var ctx = context.Background()
-
 type App struct {
 	RedisClient         *redis.Client
 	SqsSvc              *sqs.SQS
@@ -78,7 +76,7 @@ func main() {
 
 	rdb := redis.NewClient(opt)
 
-	if _, err := rdb.Ping(ctx).Result(); err != nil {
+	if _, err := rdb.Ping(context.Background()).Result(); err != nil {
 		fatalLog("redis_connection_failed", LogEvent{
 			Component:  "cache",
 			Dependency: "redis",

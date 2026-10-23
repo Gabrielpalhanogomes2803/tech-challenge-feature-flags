@@ -1,0 +1,36 @@
+alertmanager:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+server:
+  replicaCount: 1
+
+  extraFlags:
+    - web.enable-lifecycle
+    - web.enable-remote-write-receiver
+
+  global:
+    scrape_interval: 30s
+    evaluation_interval: 30s
+
+  retention: "3d"
+
+  persistentVolume:
+    enabled: true
+    storageClass: gp3-monitoring
+    size: 8Gi
+    accessModes:
+      - ReadWriteOnce
+
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      cpu: 600m
+      memory: 1Gi
+
+  service:
+    type: ClusterIP

@@ -9,11 +9,11 @@ resource "aws_security_group" "this" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "Redis a partir da VPC"
-    from_port   = 6379
-    to_port     = 6379
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
+    description     = "Redis a partir do EKS"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [var.eks_security_group_id]
   }
 
   tags = merge(var.tags, {
@@ -34,7 +34,7 @@ resource "aws_elasticache_replication_group" "this" {
   security_group_ids = [aws_security_group.this.id]
 
   at_rest_encryption_enabled = true
-  transit_encryption_enabled = false
+  transit_encryption_enabled = true
 
   automatic_failover_enabled = false
   multi_az_enabled           = false

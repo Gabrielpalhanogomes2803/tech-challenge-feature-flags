@@ -13,11 +13,11 @@ resource "aws_security_group" "this" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "PostgreSQL a partir da VPC"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
+    description     = "PostgreSQL a partir do EKS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.eks_security_group_id]
   }
 
   tags = merge(var.tags, {

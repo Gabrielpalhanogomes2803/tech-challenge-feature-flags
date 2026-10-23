@@ -44,7 +44,7 @@ spec:
         - name: PORT
           value: "8004"
         - name: REDIS_URL
-          value: "redis://togglemaster-homolog-redis.ga9yzx.ng.0001.use1.cache.amazonaws.com:6379"
+          value: "rediss://togglemaster-homolog-redis.ga9yzx.ng.0001.use1.cache.amazonaws.com:6379"
         - name: FLAG_SERVICE_URL
           value: "http://flag-service:8002"
         - name: TARGETING_SERVICE_URL

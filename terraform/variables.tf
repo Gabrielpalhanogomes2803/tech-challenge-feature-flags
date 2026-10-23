@@ -39,3 +39,18 @@ variable "private_subnet_cidrs" {
   type        = list(string)
   default     = ["10.20.11.0/24", "10.20.12.0/24"]
 }
+variable "eks_public_access_cidrs" {
+  description = "CIDRs autorizados a acessar a API publica do EKS"
+  type        = list(string)
+
+  validation {
+    condition = (
+      length(var.eks_public_access_cidrs) > 0 &&
+      alltrue([
+        for cidr in var.eks_public_access_cidrs :
+        can(cidrhost(cidr, 0)) && cidr != "0.0.0.0/0"
+      ])
+    )
+    error_message = "Informe pelo menos um CIDR valido e restrito."
+  }
+}

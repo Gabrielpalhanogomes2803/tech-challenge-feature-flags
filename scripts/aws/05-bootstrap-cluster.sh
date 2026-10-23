@@ -105,8 +105,40 @@ for variable, (instance_id, database_name) in databases.items():
         "?sslmode=require"
     )
 
-secret_data["MASTER_KEY"] = secrets.token_urlsafe(48)
-secret_data["SERVICE_API_KEY"] = secrets.token_urlsafe(48)
+# Preserva credenciais entre execuções do bootstrap.
+result = subprocess.run(
+    [
+        "kubectl", "get", "secret",
+        "togglemaster-runtime-secrets",
+        "--namespace", "togglemaster",
+        "-o", "json",
+        "--ignore-not-found",
+    ],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+
+if result.stdout.strip():
+    import base64
+
+    existing = json.loads(result.stdout)
+    stored = existing.get("data", {})
+
+    for key in ("MASTER_KEY", "SERVICE_API_KEY"):
+        if key not in stored:
+            raise RuntimeError(
+                f"Secret existente sem {key}; correção manual necessária."
+            )
+        secret_data[key] = base64.b64decode(
+            stored[key], validate=True
+        ).decode("utf-8")
+
+    print("Credenciais existentes preservadas.")
+else:
+    secret_data["MASTER_KEY"] = secrets.token_urlsafe(48)
+    secret_data["SERVICE_API_KEY"] = secrets.token_urlsafe(48)
+    print("Credenciais geradas para primeira implantação.")
 
 manifest = {
     "apiVersion": "v1",
@@ -171,14 +203,17 @@ kubectl create configmap targeting-db-schema \
   --dry-run=client -o yaml |
 kubectl apply -f -
 
-kubectl delete jobs \
-  auth-db-init \
-  flag-db-init \
-  targeting-db-init \
-  --namespace togglemaster \
-  --ignore-not-found
+echo "Verificando Jobs de inicialização..."
 
-python3 - <<'PY' | kubectl apply -f -
+for job in auth-db-init flag-db-init targeting-db-init; do
+  if kubectl get job "$job" -n togglemaster >/dev/null 2>&1; then
+    echo "Job existente: $job"
+  else
+    echo "Job ausente: $job"
+  fi
+done
+
+python3 - <<'PY' > "$TEMP_DIR/db-jobs.json"
 import json
 
 configurations = [
@@ -257,19 +292,52 @@ print(json.dumps({
 }))
 PY
 
-kubectl wait \
-  --namespace togglemaster \
-  --for=condition=Complete \
-  job/auth-db-init \
-  job/flag-db-init \
-  job/targeting-db-init \
-  --timeout=10m
+for job in auth-db-init flag-db-init targeting-db-init; do
+  echo "Verificando Job: $job"
 
-kubectl delete jobs \
-  auth-db-init \
-  flag-db-init \
-  targeting-db-init \
-  --namespace togglemaster
+  JOB_CHECK="$(kubectl get job "$job" --namespace togglemaster --ignore-not-found -o name)" || {
+    echo "ERRO: falha ao consultar Job $job no Kubernetes."
+    exit 1
+  }
+
+  if [[ -n "$JOB_CHECK" ]]; then
+    echo "Preservando Job existente: $job"
+    continue
+  fi
+
+  echo "Criando Job: $job"
+
+  python3 - "$TEMP_DIR/db-jobs.json" "$job" <<'PYFILTER' |
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as file:
+    manifest = json.load(file)
+
+matches = [
+    item for item in manifest["items"]
+    if item["metadata"]["name"] == sys.argv[2]
+]
+
+if len(matches) != 1:
+    raise SystemExit("Job não encontrado no manifesto.")
+
+print(json.dumps(matches[0]))
+PYFILTER
+    kubectl create -f -
+done
+
+for job in auth-db-init flag-db-init targeting-db-init; do
+  echo "Aguardando conclusão: $job"
+
+  kubectl wait \
+    --namespace togglemaster \
+    --for=condition=Complete \
+    "job/$job" \
+    --timeout=10m
+done
+
+echo "Inicialização dos bancos validada."
 
 echo
 echo "Instalando Argo CD..."
@@ -301,6 +369,57 @@ done
 kubectl apply -f gitops/argocd/applications.yaml
 
 echo
+echo "Preparando namespace e credenciais do monitoramento..."
+
+kubectl create namespace monitoring \
+  --dry-run=client -o yaml |
+kubectl apply -f -
+
+echo
+echo "Aguardando EBS CSI Driver..."
+
+kubectl rollout status deployment/ebs-csi-controller --namespace kube-system --timeout=10m
+
+echo "EBS CSI Driver disponível."
+
+kubectl apply -f gitops/monitoring/storage/storageclass.yaml
+
+bash scripts/monitoring/01-create-grafana-secret.sh
+
+echo
+echo "Registrando aplicações de observabilidade no Argo CD..."
+
+kubectl apply -f gitops/argocd/monitoring-dashboard.yaml
+kubectl apply -f gitops/argocd/monitoring-prometheus.yaml
+kubectl apply -f gitops/argocd/monitoring-loki.yaml
+echo
+echo "Aguardando sincronização do dashboard ToggleMaster..."
+
+DASHBOARD_READY=false
+
+for attempt in $(seq 1 60); do
+  SYNC_STATUS="$(kubectl get application togglemaster-monitoring-dashboard -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+  HEALTH_STATUS="$(kubectl get application togglemaster-monitoring-dashboard -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+
+  if [[ "$SYNC_STATUS" == "Synced" && "$HEALTH_STATUS" == "Healthy" ]] &&
+     kubectl get configmap togglemaster-eks-dashboard -n monitoring >/dev/null 2>&1; then
+    DASHBOARD_READY=true
+    break
+  fi
+
+  sleep 5
+done
+
+if [[ "$DASHBOARD_READY" != "true" ]]; then
+  echo "ERRO: dashboard não ficou Synced/Healthy em até 5 minutos."
+  exit 1
+fi
+
+echo "Dashboard sincronizado e disponível."
+
+kubectl apply -f gitops/argocd/monitoring-grafana.yaml
+
+echo
 echo "Aguardando os cinco microsserviços..."
 
 kubectl wait \
@@ -314,4 +433,32 @@ kubectl wait \
   --timeout=15m
 
 echo
+echo
+echo "Verificando saúde das aplicações de observabilidade..."
+
+for application in togglemaster-prometheus togglemaster-loki togglemaster-grafana; do
+  echo "Aguardando $application..."
+
+  READY=false
+
+  for attempt in $(seq 1 120); do
+    SYNC_STATUS="$(kubectl get application "$application" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)"
+    HEALTH_STATUS="$(kubectl get application "$application" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)"
+
+    if [[ "$SYNC_STATUS" == "Synced" && "$HEALTH_STATUS" == "Healthy" ]]; then
+      READY=true
+      break
+    fi
+
+    sleep 5
+  done
+
+  if [[ "$READY" != "true" ]]; then
+    echo "ERRO: $application não ficou Synced/Healthy em até 10 minutos."
+    exit 1
+  fi
+
+  echo "$application: Synced/Healthy"
+done
+
 echo "Bootstrap Kubernetes concluído."
