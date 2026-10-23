@@ -19,7 +19,7 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 8,
+      "version": 9,
       "editable": true,
       "refresh": "30s",
       "time": {
@@ -1733,7 +1733,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum(probe_success{job=\"togglemaster-http-health\"})",
+              "expr": "sum(probe_success{job=\"togglemaster-http-health\",service!=\"\"})",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -1798,7 +1798,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "max(probe_duration_seconds{job=\"togglemaster-http-health\"})",
+              "expr": "max(probe_duration_seconds{job=\"togglemaster-http-health\",service!=\"\"})",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -1863,7 +1863,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "count(probe_success{job=\"togglemaster-http-health\"})",
+              "expr": "count(probe_success{job=\"togglemaster-http-health\",service!=\"\"})",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -2232,7 +2232,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "probe_duration_seconds{job=\"togglemaster-http-health\"}",
+              "expr": "probe_duration_seconds{job=\"togglemaster-http-health\",service!=\"\"}",
               "legendFormat": "{{service}}",
               "datasource": {
                 "type": "prometheus",
@@ -2283,7 +2283,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "probe_http_status_code{job=\"togglemaster-http-health\"}",
+              "expr": "probe_http_status_code{job=\"togglemaster-http-health\",service!=\"\"}",
               "legendFormat": "{{service}}",
               "datasource": {
                 "type": "prometheus",
