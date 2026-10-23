@@ -8,7 +8,7 @@ data:
     {
       "uid": "togglemaster-eks-infra",
       "title": "ToggleMaster | Operations Center",
-      "description": "V6: séries temporais Prometheus explicitamente em modo range, logs Loki estruturados por container e janela ampliada para Auth/Evaluation; ausência de logs de falha não indica erro.",
+      "description": "V7: visão unificada de 6h sem sobreposição por painel; saúde de réplicas destacada por cores; ausência de eventos de falha explicitada. Disponibilidade de API HTTP exige sondagem dedicada.",
       "tags": [
         "togglemaster",
         "eks",
@@ -19,11 +19,11 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 6,
+      "version": 7,
       "editable": true,
       "refresh": "30s",
       "time": {
-        "from": "now-3h",
+        "from": "now-6h",
         "to": "now"
       },
       "annotations": {
@@ -47,7 +47,7 @@ data:
           "id": 1,
           "title": "Microsserviços disponíveis",
           "type": "stat",
-          "description": "Quantidade de deployments com pelo menos uma réplica disponível. Não representa a taxa de sucesso HTTP.",
+          "description": "Conta deployments com pelo menos uma réplica disponível. Verde indica os 5 serviços com réplicas; não é teste HTTP de disponibilidade da API.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -90,8 +90,16 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "text",
+                    "color": "red",
                     "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 4
+                  },
+                  {
+                    "color": "green",
+                    "value": 5
                   }
                 ]
               }
@@ -103,7 +111,7 @@ data:
           "id": 2,
           "title": "Réplicas disponíveis",
           "type": "stat",
-          "description": "Réplicas disponíveis. Compare com as réplicas desejadas na descrição ou detalhe de cada serviço; o valor é apenas o numerador.",
+          "description": "Réplicas disponíveis somadas. Verde = 10 réplicas, capacidade planejada atual.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -146,8 +154,16 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "text",
+                    "color": "red",
                     "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 8
+                  },
+                  {
+                    "color": "green",
+                    "value": 10
                   }
                 ]
               }
@@ -215,7 +231,7 @@ data:
           "id": 4,
           "title": "Reinicializações · 1h",
           "type": "stat",
-          "description": "Aumento estimado do contador de reinicializações nos últimos 60 minutos.",
+          "description": "Reinicializações nos últimos 60 minutos; verde quando zero.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -258,8 +274,16 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "text",
+                    "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 3
                   }
                 ]
               }
@@ -507,7 +531,7 @@ data:
         {
           "id": 30,
           "title": "auth-service · saúde",
-          "description": "Réplicas disponíveis, reinícios, CPU e memória. Não mede disponibilidade HTTP.",
+          "description": "Saúde operacional por réplicas, reinícios e consumo; 2 réplicas é o alvo atual. Não mede disponibilidade HTTP.",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -595,6 +619,26 @@ data:
                   {
                     "id": "decimals",
                     "value": 0
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        },
+                        {
+                          "color": "green",
+                          "value": 2
+                        }
+                      ]
+                    }
                   }
                 ]
               },
@@ -628,7 +672,7 @@ data:
         {
           "id": 31,
           "title": "auth-service · logs",
-          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global. Consulta deste painel: últimas 6 horas, independentemente do período global.",
+          "description": "Eventos do container no intervalo global. Sem novos logs não significa serviço indisponível; acompanhe as réplicas.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -660,13 +704,12 @@ data:
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
-          },
-          "timeFrom": "6h"
+          }
         },
         {
           "id": 32,
           "title": "flag-service · saúde",
-          "description": "Réplicas disponíveis, reinícios, CPU e memória. Não mede disponibilidade HTTP.",
+          "description": "Saúde operacional por réplicas, reinícios e consumo; 2 réplicas é o alvo atual. Não mede disponibilidade HTTP.",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -754,6 +797,26 @@ data:
                   {
                     "id": "decimals",
                     "value": 0
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        },
+                        {
+                          "color": "green",
+                          "value": 2
+                        }
+                      ]
+                    }
                   }
                 ]
               },
@@ -824,7 +887,7 @@ data:
         {
           "id": 34,
           "title": "targeting-service · saúde",
-          "description": "Réplicas disponíveis, reinícios, CPU e memória. Não mede disponibilidade HTTP.",
+          "description": "Saúde operacional por réplicas, reinícios e consumo; 2 réplicas é o alvo atual. Não mede disponibilidade HTTP.",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -912,6 +975,26 @@ data:
                   {
                     "id": "decimals",
                     "value": 0
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        },
+                        {
+                          "color": "green",
+                          "value": 2
+                        }
+                      ]
+                    }
                   }
                 ]
               },
@@ -982,7 +1065,7 @@ data:
         {
           "id": 36,
           "title": "evaluation-service · saúde",
-          "description": "Réplicas disponíveis, reinícios, CPU e memória. Não mede disponibilidade HTTP.",
+          "description": "Saúde operacional por réplicas, reinícios e consumo; 2 réplicas é o alvo atual. Não mede disponibilidade HTTP.",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -1070,6 +1153,26 @@ data:
                   {
                     "id": "decimals",
                     "value": 0
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        },
+                        {
+                          "color": "green",
+                          "value": 2
+                        }
+                      ]
+                    }
                   }
                 ]
               },
@@ -1103,7 +1206,7 @@ data:
         {
           "id": 37,
           "title": "evaluation-service · logs",
-          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global. Consulta deste painel: últimas 6 horas, independentemente do período global.",
+          "description": "Eventos do container no intervalo global. Sem novos logs não significa serviço indisponível; acompanhe as réplicas.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -1135,13 +1238,12 @@ data:
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
-          },
-          "timeFrom": "6h"
+          }
         },
         {
           "id": 38,
           "title": "analytics-service · saúde",
-          "description": "Réplicas disponíveis, reinícios, CPU e memória. Não mede disponibilidade HTTP.",
+          "description": "Saúde operacional por réplicas, reinícios e consumo; 2 réplicas é o alvo atual. Não mede disponibilidade HTTP.",
           "type": "stat",
           "datasource": {
             "type": "prometheus",
@@ -1229,6 +1331,26 @@ data:
                   {
                     "id": "decimals",
                     "value": 0
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        },
+                        {
+                          "color": "green",
+                          "value": 2
+                        }
+                      ]
+                    }
                   }
                 ]
               },
@@ -1549,9 +1671,9 @@ data:
         },
         {
           "id": 18,
-          "title": "Eventos de falha · todos os serviços",
+          "title": "Detalhes das falhas · vazio quando sem ocorrências",
           "type": "logs",
-          "description": "Mostra apenas falhas encontradas. No data significa nenhum evento correspondente no período, não erro do Loki.",
+          "description": "Este painel só mostra eventos que correspondam ao filtro de falhas. 'No data' com contador zero significa que nenhum evento correspondente foi encontrado no intervalo, não que o Loki esteja desconectado.",
           "gridPos": {
             "x": 6,
             "y": 49,
