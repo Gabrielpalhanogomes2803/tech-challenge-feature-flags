@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: togglemaster-blackbox-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: togglemaster-blackbox-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: togglemaster-blackbox-exporter
+  ports:
+    - name: http
+      port: 9115
+      targetPort: http
