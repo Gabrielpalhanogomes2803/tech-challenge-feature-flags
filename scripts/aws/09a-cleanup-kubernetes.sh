@@ -78,6 +78,46 @@ for app in "${APPLICATIONS[@]}"; do
 done
 
 echo
+echo "===== INVENTÁRIO EBS ANTES DA LIMPEZA ====="
+
+INVENTORY_DIR="$PROJECT_ROOT/.cleanup-evidence"
+mkdir -p "$INVENTORY_DIR"
+chmod 700 "$INVENTORY_DIR"
+
+INVENTORY_FILE="$INVENTORY_DIR/ebs-volumes.json"
+PV_JSON="$(kubectl get pv -o json)"
+
+printf '%s' "$PV_JSON" | python3 -c '
+import json, sys
+
+data = json.load(sys.stdin)
+result = []
+
+for pv in data.get("items", []):
+    spec = pv.get("spec", {})
+    claim = spec.get("claimRef", {})
+    csi = spec.get("csi", {})
+
+    if (
+        claim.get("namespace") == "monitoring"
+        and spec.get("storageClassName") == "gp3-monitoring"
+        and csi.get("driver") == "ebs.csi.aws.com"
+    ):
+        result.append({
+            "pv": pv["metadata"]["name"],
+            "pvc": claim.get("name"),
+            "volume_id": csi.get("volumeHandle")
+        })
+
+print(json.dumps(result, indent=2))
+' > "$INVENTORY_FILE"
+
+chmod 600 "$INVENTORY_FILE"
+
+echo "Inventário salvo: $INVENTORY_FILE"
+cat "$INVENTORY_FILE"
+echo
+
 echo "===== PVCs DE MONITORAMENTO ====="
 
 PVC_JSON="$(kubectl get pvc -n monitoring -o json)"
