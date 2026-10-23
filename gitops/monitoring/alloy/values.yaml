@@ -1,0 +1,43 @@
+controller:
+  type: deployment
+  replicas: 1
+
+alloy:
+  configMap:
+    content: |
+      discovery.kubernetes "togglemaster" {
+        role = "pod"
+        namespaces {
+          names = ["togglemaster"]
+        }
+      }
+
+      discovery.relabel "togglemaster" {
+        targets = discovery.kubernetes.togglemaster.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+
+        rule {
+          target_label = "service_name"
+          replacement  = "togglemaster"
+        }
+      }
+
+      loki.source.kubernetes "togglemaster" {
+        targets    = discovery.relabel.togglemaster.output
+        forward_to = [loki.write.local.receiver]
+      }
+
+      loki.write "local" {
+        endpoint {
+          url = "http://togglemaster-loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }
