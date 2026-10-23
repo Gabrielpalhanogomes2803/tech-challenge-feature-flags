@@ -56,7 +56,7 @@ extraScrapeConfigs: |
       - source_labels: [__param_target]
         target_label: instance
       - source_labels: [__param_target]
-        regex: 'http://([a-z]+)-service\\.togglemaster\\.svc\\.cluster\\.local:[0-9]+/health'
+        regex: 'http://([a-z]+)-service[.]togglemaster[.]svc[.]cluster[.]local:[0-9]+/health'
         target_label: service
         replacement: '$1-service'
       - target_label: __address__
