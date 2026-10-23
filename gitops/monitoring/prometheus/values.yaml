@@ -34,3 +34,60 @@ server:
 
   service:
     type: ClusterIP
+
+# Sondas HTTP internas. Exige a Application togglemaster-monitoring-blackbox.
+extraScrapeConfigs: |
+  - job_name: togglemaster-http-health
+    metrics_path: /probe
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    params:
+      module: [http_health]
+    static_configs:
+      - targets:
+          - http://auth-service.togglemaster.svc.cluster.local:8001/health
+          - http://flag-service.togglemaster.svc.cluster.local:8002/health
+          - http://targeting-service.togglemaster.svc.cluster.local:8003/health
+          - http://evaluation-service.togglemaster.svc.cluster.local:8004/health
+          - http://analytics-service.togglemaster.svc.cluster.local:8005/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - source_labels: [__param_target]
+        regex: 'http://([a-z]+)-service\\.togglemaster\\.svc\\.cluster\\.local:[0-9]+/health'
+        target_label: service
+        replacement: '$1-service'
+      - target_label: __address__
+        replacement: togglemaster-blackbox-exporter.monitoring.svc.cluster.local:9115
+
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: togglemaster-http
+        rules:
+          - alert: ToggleMasterHTTPHealthDown
+            expr: probe_success{job="togglemaster-http-health"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "HTTP health indisponível: {{ $labels.service }}"
+              description: "Sonda /health falhou por pelo menos 2 minutos."
+          - alert: ToggleMasterHTTPHealthMissing
+            expr: absent(probe_success{job="togglemaster-http-health"})
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Métricas HTTP ausentes"
+              description: "Nenhuma série probe_success disponível; verificar Prometheus e Blackbox Exporter."
+          - alert: ToggleMasterHTTPHealthSlow
+            expr: probe_success{job="togglemaster-http-health"} == 1 and probe_duration_seconds{job="togglemaster-http-health"} > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Latência alta na sonda: {{ $labels.service }}"
+              description: "Tempo total da sonda /health superior a 1s por 5 minutos."
