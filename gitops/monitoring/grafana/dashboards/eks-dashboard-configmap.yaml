@@ -7,8 +7,8 @@ data:
   eks-infrastructure.json: |
     {
       "uid": "togglemaster-eks-infra",
-      "title": "ToggleMaster | SRE & Observabilidade",
-      "description": "Visão operacional FIAP: saúde dos 5 serviços, consumo do cluster e investigação de logs Loki. Sem SLIs HTTP até instrumentação específica.",
+      "title": "ToggleMaster | Operations Center",
+      "description": "Visão SRE: serviços, disponibilidade, CPU, memória, logs operacionais e investigação.",
       "tags": [
         "togglemaster",
         "eks",
@@ -19,7 +19,7 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 2,
+      "version": 3,
       "editable": true,
       "refresh": "30s",
       "time": {
@@ -31,15 +31,84 @@ data:
       },
       "panels": [
         {
-          "id": 1,
-          "title": "Réplicas disponíveis",
-          "type": "stat",
-          "description": "Total de réplicas disponíveis nos cinco deployments; esperado: 10.",
+          "id": 100,
+          "title": "01 · VISÃO EXECUTIVA",
+          "type": "row",
+          "collapsed": false,
           "gridPos": {
             "x": 0,
             "y": 0,
-            "w": 6,
-            "h": 5
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 1,
+          "title": "Serviços com réplicas",
+          "type": "stat",
+          "description": "",
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "count(kube_deployment_status_replicas_available{namespace=\"togglemaster\",deployment=~\"(auth|flag|targeting|evaluation|analytics)-service\"} > 0)",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "value",
+            "colorMode": "value",
+            "graphMode": "none",
+            "orientation": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 2,
+          "title": "Réplicas disponíveis",
+          "type": "stat",
+          "description": "",
+          "gridPos": {
+            "x": 4,
+            "y": 1,
+            "w": 4,
+            "h": 4
           },
           "datasource": {
             "type": "prometheus",
@@ -49,7 +118,6 @@ data:
             {
               "refId": "A",
               "expr": "sum(kube_deployment_status_replicas_available{namespace=\"togglemaster\",deployment=~\"(auth|flag|targeting|evaluation|analytics)-service\"})",
-              "legendFormat": "",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -64,31 +132,39 @@ data:
               "fields": "",
               "values": false
             },
-            "orientation": "auto",
-            "textMode": "value_and_name",
+            "textMode": "value",
             "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto"
+            "graphMode": "none",
+            "orientation": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "short",
               "decimals": 0,
-              "noValue": "Sem dados"
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
             },
             "overrides": []
           }
         },
         {
-          "id": 2,
+          "id": 3,
           "title": "Réplicas desejadas",
           "type": "stat",
-          "description": "Capacidade definida pelos deployments; comparação com réplicas disponíveis.",
+          "description": "",
           "gridPos": {
-            "x": 6,
-            "y": 0,
-            "w": 6,
-            "h": 5
+            "x": 8,
+            "y": 1,
+            "w": 4,
+            "h": 4
           },
           "datasource": {
             "type": "prometheus",
@@ -98,7 +174,6 @@ data:
             {
               "refId": "A",
               "expr": "sum(kube_deployment_spec_replicas{namespace=\"togglemaster\",deployment=~\"(auth|flag|targeting|evaluation|analytics)-service\"})",
-              "legendFormat": "",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -113,31 +188,39 @@ data:
               "fields": "",
               "values": false
             },
-            "orientation": "auto",
-            "textMode": "value_and_name",
+            "textMode": "value",
             "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto"
+            "graphMode": "none",
+            "orientation": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "short",
               "decimals": 0,
-              "noValue": "Sem dados"
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
             },
             "overrides": []
           }
         },
         {
-          "id": 3,
-          "title": "Reinicializações acumuladas",
+          "id": 4,
+          "title": "Reinicializações · 1h",
           "type": "stat",
-          "description": "Contador acumulado dos pods atualmente observados; não representa falhas nas últimas 24h.",
+          "description": "",
           "gridPos": {
             "x": 12,
-            "y": 0,
-            "w": 6,
-            "h": 5
+            "y": 1,
+            "w": 4,
+            "h": 4
           },
           "datasource": {
             "type": "prometheus",
@@ -146,8 +229,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"togglemaster\"})",
-              "legendFormat": "",
+              "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"togglemaster\"}[1h])) or vector(0)",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -162,31 +244,39 @@ data:
               "fields": "",
               "values": false
             },
-            "orientation": "auto",
-            "textMode": "value_and_name",
+            "textMode": "value",
             "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto"
+            "graphMode": "none",
+            "orientation": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "short",
               "decimals": 0,
-              "noValue": "Sem dados"
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
             },
             "overrides": []
           }
         },
         {
-          "id": 4,
+          "id": 5,
           "title": "CPU média dos nós",
           "type": "stat",
-          "description": "CPU média observada nos nós com node_exporter.",
+          "description": "",
           "gridPos": {
-            "x": 18,
-            "y": 0,
-            "w": 6,
-            "h": 5
+            "x": 16,
+            "y": 1,
+            "w": 4,
+            "h": 4
           },
           "datasource": {
             "type": "prometheus",
@@ -196,7 +286,6 @@ data:
             {
               "refId": "A",
               "expr": "avg(100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))))",
-              "legendFormat": "",
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
@@ -211,29 +300,106 @@ data:
               "fields": "",
               "values": false
             },
-            "orientation": "auto",
-            "textMode": "value_and_name",
+            "textMode": "value",
             "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto"
+            "graphMode": "none",
+            "orientation": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "percent",
               "decimals": 1,
-              "noValue": "Sem dados"
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
             },
             "overrides": []
           }
         },
         {
-          "id": 5,
-          "title": "Disponibilidade por microsserviço",
+          "id": 6,
+          "title": "Memória média dos nós",
+          "type": "stat",
+          "description": "",
+          "gridPos": {
+            "x": 20,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "avg(100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              }
+            }
+          ],
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "value",
+            "colorMode": "value",
+            "graphMode": "none",
+            "orientation": "auto"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "noValue": "N/D",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "id": 101,
+          "title": "02 · SAÚDE DOS MICROSSERVIÇOS",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 5,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 7,
+          "title": "Réplicas disponíveis · por serviço",
           "type": "timeseries",
           "description": "Acompanhar indisponibilidade e divergência frente ao desejado.",
           "gridPos": {
             "x": 0,
-            "y": 5,
+            "y": 6,
             "w": 12,
             "h": 8
           },
@@ -257,11 +423,9 @@ data:
               "unit": "short",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -276,19 +440,18 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 6,
-          "title": "CPU por microsserviço (cores)",
+          "id": 8,
+          "title": "CPU por microsserviço · cores",
           "type": "timeseries",
           "description": "CPU agregada pelos pods do mesmo microsserviço, usando nome do pod.",
           "gridPos": {
             "x": 12,
-            "y": 5,
+            "y": 6,
             "w": 12,
             "h": 8
           },
@@ -312,11 +475,9 @@ data:
               "unit": "cores",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -331,19 +492,18 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 7,
-          "title": "Memória por microsserviço",
+          "id": 9,
+          "title": "Memória por microsserviço · working set",
           "type": "timeseries",
           "description": "Working set por microsserviço, agregado entre réplicas.",
           "gridPos": {
             "x": 0,
-            "y": 13,
+            "y": 14,
             "w": 12,
             "h": 8
           },
@@ -367,11 +527,9 @@ data:
               "unit": "bytes",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -386,19 +544,18 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 8,
-          "title": "Reinicializações por serviço (acumulado)",
+          "id": 10,
+          "title": "Reinicializações acumuladas · por serviço",
           "type": "timeseries",
           "description": "Contador acumulado por serviço. Não usar increase para exibir contagem inteira.",
           "gridPos": {
             "x": 12,
-            "y": 13,
+            "y": 14,
             "w": 12,
             "h": 8
           },
@@ -422,11 +579,9 @@ data:
               "unit": "short",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -441,19 +596,31 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 9,
-          "title": "CPU utilizada por nó (%)",
+          "id": 102,
+          "title": "03 · CAPACIDADE DO EKS",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 22,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 11,
+          "title": "CPU utilizada · por nó",
           "type": "timeseries",
           "description": "Capacidade de CPU por nó do cluster.",
           "gridPos": {
             "x": 0,
-            "y": 21,
+            "y": 23,
             "w": 12,
             "h": 8
           },
@@ -477,11 +644,9 @@ data:
               "unit": "percent",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -496,19 +661,18 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 10,
-          "title": "Memória utilizada por nó (%)",
+          "id": 12,
+          "title": "Memória utilizada · por nó",
           "type": "timeseries",
           "description": "Pressão de memória por nó.",
           "gridPos": {
             "x": 12,
-            "y": 21,
+            "y": 23,
             "w": 12,
             "h": 8
           },
@@ -532,11 +696,9 @@ data:
               "unit": "percent",
               "custom": {
                 "drawStyle": "line",
-                "lineInterpolation": "smooth",
                 "lineWidth": 2,
-                "fillOpacity": 12,
-                "showPoints": "never",
-                "spanNulls": false
+                "fillOpacity": 7,
+                "showPoints": "never"
               },
               "noValue": "Sem dados"
             },
@@ -551,20 +713,136 @@ data:
               ]
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
+              "mode": "multi"
             }
           }
         },
         {
-          "id": 11,
-          "title": "Eventos de erro nos logs (15 min)",
-          "description": "Contagem de linhas contendo palavras-chave. Indicação inicial, NÃO equivale a taxa HTTP 5xx nem a um SLO.",
-          "type": "stat",
+          "id": 13,
+          "title": "Top 5 pods · CPU",
+          "type": "timeseries",
+          "description": "CPU agregada pelos pods do mesmo microsserviço, usando nome do pod.",
           "gridPos": {
             "x": 0,
-            "y": 29,
-            "w": 8,
+            "y": 31,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "topk(5,sum by (pod)(rate(container_cpu_usage_seconds_total{namespace=\"togglemaster\",container!=\"\",container!=\"POD\"}[5m])))",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cores",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 7,
+                "showPoints": "never"
+              },
+              "noValue": "Sem dados"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 14,
+          "title": "Top 5 pods · memória",
+          "type": "timeseries",
+          "description": "Working set por microsserviço, agregado entre réplicas.",
+          "gridPos": {
+            "x": 12,
+            "y": 31,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "topk(5,sum by (pod)(container_memory_working_set_bytes{namespace=\"togglemaster\",container!=\"\",container!=\"POD\"}))",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "legendFormat": "{{pod}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 7,
+                "showPoints": "never"
+              },
+              "noValue": "Sem dados"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 103,
+          "title": "04 · LOGS E INVESTIGAÇÃO",
+          "type": "row",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 39,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 15,
+          "title": "Ocorrências de erro · 15 min",
+          "type": "stat",
+          "description": "Sinais textuais de falhas, não taxa de erro HTTP.",
+          "gridPos": {
+            "x": 0,
+            "y": 40,
+            "w": 6,
             "h": 5
           },
           "datasource": {
@@ -574,8 +852,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum(count_over_time({service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout)\" [15m]))",
-              "legendFormat": "",
+              "expr": "sum(count_over_time({service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout|traceback)\" [15m])) or vector(0)",
               "datasource": {
                 "type": "loki",
                 "uid": "loki"
@@ -590,14 +867,15 @@ data:
               "fields": "",
               "values": false
             },
+            "textMode": "value",
             "colorMode": "value",
-            "graphMode": "area",
-            "textMode": "value_and_name"
+            "graphMode": "none",
+            "orientation": "auto"
           },
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "Sem dados",
+              "noValue": "Sem ocorrências",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -620,14 +898,14 @@ data:
           }
         },
         {
-          "id": 12,
-          "title": "Volume de logs por serviço (5 min)",
+          "id": 16,
+          "title": "Volume de logs · por container",
           "description": "Contagem de entradas por pod, útil para identificar anomalias de volume.",
           "type": "timeseries",
           "gridPos": {
-            "x": 8,
-            "y": 29,
-            "w": 16,
+            "x": 6,
+            "y": 40,
+            "w": 18,
             "h": 5
           },
           "datasource": {
@@ -638,24 +916,33 @@ data:
             {
               "refId": "A",
               "expr": "sum by (container) (count_over_time({service_name=\"togglemaster\"}[5m]))",
-              "legendFormat": "{{container}}",
               "datasource": {
                 "type": "loki",
                 "uid": "loki"
-              }
+              },
+              "legendFormat": "{{container}}"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "Sem dados"
+              "noValue": "Sem dados",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 7,
+                "showPoints": "never"
+              }
             },
             "overrides": []
           },
           "options": {
             "legend": {
-              "displayMode": "list",
-              "placement": "bottom"
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
             },
             "tooltip": {
               "mode": "multi"
@@ -663,13 +950,13 @@ data:
           }
         },
         {
-          "id": 13,
-          "title": "Logs em tempo real | Microsserviços",
+          "id": 17,
+          "title": "Logs operacionais · microsserviços",
           "type": "logs",
           "description": "Logs de todos os containers ToggleMaster, com pesquisa e detalhes por entrada.",
           "gridPos": {
             "x": 0,
-            "y": 34,
+            "y": 45,
             "w": 24,
             "h": 11
           },
@@ -680,8 +967,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "{service_name=\"togglemaster\"}",
-              "legendFormat": "",
+              "expr": "{service_name=\"togglemaster\"} | json | line_format \"{{.level}} | {{.service}} | {{.message}}\"",
               "datasource": {
                 "type": "loki",
                 "uid": "loki"
@@ -692,22 +978,22 @@ data:
             "showTime": true,
             "showLabels": false,
             "showCommonLabels": false,
-            "wrapLogMessage": true,
+            "wrapLogMessage": false,
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
           }
         },
         {
-          "id": 14,
-          "title": "Investigação | Erros, falhas e timeouts",
+          "id": 18,
+          "title": "Investigação · falhas e timeouts",
           "type": "logs",
           "description": "Filtro exploratório por palavras-chave; podem existir falsos positivos e negativos.",
           "gridPos": {
             "x": 0,
-            "y": 45,
+            "y": 56,
             "w": 24,
-            "h": 10
+            "h": 9
           },
           "datasource": {
             "type": "loki",
@@ -716,8 +1002,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "{service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout)\"",
-              "legendFormat": "",
+              "expr": "{service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout|traceback|unhealthy)\" | json | line_format \"{{.level}} | {{.service}} | {{.message}}\"",
               "datasource": {
                 "type": "loki",
                 "uid": "loki"
@@ -728,11 +1013,12 @@ data:
             "showTime": true,
             "showLabels": false,
             "showCommonLabels": false,
-            "wrapLogMessage": true,
+            "wrapLogMessage": false,
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
           }
         }
-      ]
+      ],
+      "graphTooltip": 1
     }
