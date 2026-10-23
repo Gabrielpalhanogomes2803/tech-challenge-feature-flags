@@ -8,7 +8,7 @@ data:
     {
       "uid": "togglemaster-eks-infra",
       "title": "ToggleMaster | Operations Center",
-      "description": "Indicadores de infraestrutura no topo, cinco microsserviços com logs filtrados por label container, tendências discretas e investigação. Uptime dos nós não equivale a uptime HTTP.",
+      "description": "V6: séries temporais Prometheus explicitamente em modo range, logs Loki estruturados por container e janela ampliada para Auth/Evaluation; ausência de logs de falha não indica erro.",
       "tags": [
         "togglemaster",
         "eks",
@@ -19,7 +19,7 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 5,
+      "version": 6,
       "editable": true,
       "refresh": "30s",
       "time": {
@@ -628,7 +628,7 @@ data:
         {
           "id": 31,
           "title": "auth-service · logs",
-          "description": "Eventos do container no Loki, incluindo health checks. Período padrão: últimas 3 horas.",
+          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global. Consulta deste painel: últimas 6 horas, independentemente do período global.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -641,7 +641,7 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=\"togglemaster\",container=\"auth-service\"} | json | line_format \"{{.level}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\",container=\"auth-service\"} | json | line_format \"{{.level}} | {{.event}} | {{.message}}\"",
               "maxLines": 100
             }
           ],
@@ -660,7 +660,8 @@ data:
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
-          }
+          },
+          "timeFrom": "6h"
         },
         {
           "id": 32,
@@ -786,7 +787,7 @@ data:
         {
           "id": 33,
           "title": "flag-service · logs",
-          "description": "Eventos do container no Loki, incluindo health checks. Período padrão: últimas 3 horas.",
+          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -799,7 +800,7 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=\"togglemaster\",container=\"flag-service\"} | json | line_format \"{{.level}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\",container=\"flag-service\"} | json | line_format \"{{.level}} | {{.event}} | {{.message}}\"",
               "maxLines": 100
             }
           ],
@@ -944,7 +945,7 @@ data:
         {
           "id": 35,
           "title": "targeting-service · logs",
-          "description": "Eventos do container no Loki, incluindo health checks. Período padrão: últimas 3 horas.",
+          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -957,7 +958,7 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=\"togglemaster\",container=\"targeting-service\"} | json | line_format \"{{.level}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\",container=\"targeting-service\"} | json | line_format \"{{.level}} | {{.event}} | {{.message}}\"",
               "maxLines": 100
             }
           ],
@@ -1102,7 +1103,7 @@ data:
         {
           "id": 37,
           "title": "evaluation-service · logs",
-          "description": "Eventos do container no Loki, incluindo health checks. Período padrão: últimas 3 horas.",
+          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global. Consulta deste painel: últimas 6 horas, independentemente do período global.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -1115,7 +1116,7 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=\"togglemaster\",container=\"evaluation-service\"} | json | line_format \"{{.level}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\",container=\"evaluation-service\"} | json | line_format \"{{.level}} | {{.event}} | {{.message}}\"",
               "maxLines": 100
             }
           ],
@@ -1134,7 +1135,8 @@ data:
             "enableLogDetails": true,
             "sortOrder": "Descending",
             "dedupStrategy": "none"
-          }
+          },
+          "timeFrom": "6h"
         },
         {
           "id": 38,
@@ -1260,7 +1262,7 @@ data:
         {
           "id": 39,
           "title": "analytics-service · logs",
-          "description": "Eventos do container no Loki, incluindo health checks. Período padrão: últimas 3 horas.",
+          "description": "Log JSON por container; inclui tipo do evento e mensagem. Health checks permanecem visíveis para comprovar atividade. Serviços com poucos eventos podem mostrar No data no intervalo global.",
           "type": "logs",
           "datasource": {
             "type": "loki",
@@ -1273,7 +1275,7 @@ data:
                 "type": "loki",
                 "uid": "loki"
               },
-              "expr": "{service_name=\"togglemaster\",container=\"analytics-service\"} | json | line_format \"{{.level}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\",container=\"analytics-service\"} | json | line_format \"{{.level}} | {{.event}} | {{.message}}\"",
               "maxLines": 100
             }
           ],
@@ -1311,7 +1313,7 @@ data:
           "id": 11,
           "title": "CPU por nó · tendência",
           "type": "timeseries",
-          "description": "Uso de CPU por nó; tendência temporal para detectar saturação. Série por endereço do exporter.",
+          "description": "Séries históricas dos nós via Prometheus node_exporter; cada linha representa uma instância. Consulta range explícita.",
           "gridPos": {
             "x": 0,
             "y": 41,
@@ -1330,7 +1332,11 @@ data:
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
-              }
+              },
+              "range": true,
+              "instant": false,
+              "format": "time_series",
+              "intervalFactor": 1
             }
           ],
           "fieldConfig": {
@@ -1338,20 +1344,49 @@ data:
               "unit": "percent",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 1,
-                "fillOpacity": 3,
-                "showPoints": "never"
+                "lineInterpolation": "linear",
+                "barAlignment": 0,
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "spanNulls": false,
+                "insertNulls": false,
+                "showPoints": "never",
+                "pointSize": 5,
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "axisColorMode": "text",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "axisCenteredZero": false,
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               },
               "noValue": "Sem dados"
             },
             "overrides": []
           },
           "options": {
-            "legend": {
-              "displayMode": "hidden"
-            },
             "tooltip": {
-              "mode": "single"
+              "mode": "multi",
+              "sort": "none"
+            },
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
             }
           }
         },
@@ -1359,7 +1394,7 @@ data:
           "id": 12,
           "title": "Memória por nó · tendência",
           "type": "timeseries",
-          "description": "Percentual de memória indisponível por nó. Histórico para identificar pressão de memória.",
+          "description": "Séries históricas dos nós via Prometheus node_exporter; cada linha representa uma instância. Consulta range explícita.",
           "gridPos": {
             "x": 12,
             "y": 41,
@@ -1378,7 +1413,11 @@ data:
               "datasource": {
                 "type": "prometheus",
                 "uid": "prometheus"
-              }
+              },
+              "range": true,
+              "instant": false,
+              "format": "time_series",
+              "intervalFactor": 1
             }
           ],
           "fieldConfig": {
@@ -1386,20 +1425,49 @@ data:
               "unit": "percent",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 1,
-                "fillOpacity": 3,
-                "showPoints": "never"
+                "lineInterpolation": "linear",
+                "barAlignment": 0,
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "spanNulls": false,
+                "insertNulls": false,
+                "showPoints": "never",
+                "pointSize": 5,
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "axisColorMode": "text",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "axisCenteredZero": false,
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               },
               "noValue": "Sem dados"
             },
             "overrides": []
           },
           "options": {
-            "legend": {
-              "displayMode": "hidden"
-            },
             "tooltip": {
-              "mode": "single"
+              "mode": "multi",
+              "sort": "none"
+            },
+            "legend": {
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
             }
           }
         },
@@ -1483,7 +1551,7 @@ data:
           "id": 18,
           "title": "Eventos de falha · todos os serviços",
           "type": "logs",
-          "description": "Somente eventos com palavras-chave de falha. Um painel vazio pode significar ausência de eventos correspondentes.",
+          "description": "Mostra apenas falhas encontradas. No data significa nenhum evento correspondente no período, não erro do Loki.",
           "gridPos": {
             "x": 6,
             "y": 49,
@@ -1497,7 +1565,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "{service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout|traceback|unhealthy)\" | json | line_format \"{{.level}} | {{.service}} | {{.message}}\"",
+              "expr": "{service_name=\"togglemaster\"} |~ \"(?i)(error|exception|failed|timeout|traceback|unhealthy)\" | json | line_format \"{{.level}} | {{.service}} | {{.event}} | {{.message}}\"",
               "datasource": {
                 "type": "loki",
                 "uid": "loki"
