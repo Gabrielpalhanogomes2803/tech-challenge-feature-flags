@@ -3,3 +3,4 @@ kind: Kustomization
 
 resources:
   - eks-dashboard-configmap.yaml
+  - alerting-configmap.yaml

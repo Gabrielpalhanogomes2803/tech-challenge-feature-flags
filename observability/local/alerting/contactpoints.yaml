@@ -1,0 +1,34 @@
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: togglemaster-pagerduty
+    receivers:
+      - uid: togglemaster-pagerduty
+        type: pagerduty
+        settings:
+          integrationKey: $PAGERDUTY_INTEGRATION_KEY
+          severity: critical
+          component: auth-service
+          group: togglemaster
+          summary: '{{ template "togglemaster.titulo" . }}'
+  - orgId: 1
+    name: togglemaster-chatops
+    receivers:
+      # Discord (escolha do grupo). Para Slack: type: slack e text: no lugar de message:.
+      - uid: togglemaster-chatops
+        type: discord
+        settings:
+          url: $CHATOPS_WEBHOOK_URL
+          title: '{{ template "togglemaster.titulo" . }}'
+          message: '{{ template "togglemaster.mensagem" . }}'
+  - orgId: 1
+    name: togglemaster-selfhealing
+    receivers:
+      - uid: togglemaster-selfhealing
+        type: webhook
+        settings:
+          # TROCAR: nome do Service, porta e caminho reais do receptor da Heloisa.
+          url: http://selfhealing-receiver.togglemaster.svc.cluster.local:8080/webhook
+          httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: $SELFHEALING_WEBHOOK_TOKEN

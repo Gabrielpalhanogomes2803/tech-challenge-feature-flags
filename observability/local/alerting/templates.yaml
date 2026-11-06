@@ -1,0 +1,19 @@
+apiVersion: 1
+templates:
+  - orgId: 1
+    name: togglemaster
+    template: |
+      {{ define "togglemaster.titulo" }}[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} · {{ .CommonLabels.service }}{{ end }}
+
+      {{ define "togglemaster.mensagem" }}{{ range .Alerts }}
+      **Status:** {{ .Status }}
+      **Serviço:** {{ .Labels.service }} (namespace {{ .Labels.namespace }})
+      **Severidade:** {{ .Labels.severity }}
+      **Resumo:** {{ .Annotations.summary }}
+      **Detalhe:** {{ .Annotations.description }}
+      **Valor medido:** {{ .ValueString }}
+      **Início (UTC):** {{ .StartsAt.Format "02/01/2006 15:04:05" }}
+      {{ if eq .Status "resolved" }}**Fim (UTC):** {{ .EndsAt.Format "02/01/2006 15:04:05" }}
+      {{ end }}**Ação automática:** rollout restart do deployment {{ .Labels.deployment }} pelo receptor de self-healing
+      **Ver no Grafana:** {{ .GeneratorURL }}
+      {{ end }}{{ end }}

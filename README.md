@@ -28,6 +28,7 @@ GitHub Actions (CI/DevSecOps) -> ECR -> GitOps/Argo CD -> EKS
 - [Passagem técnica para João — OpenTelemetry](docs/handoff-joao-opentelemetry.md)
 - [Limpeza e verificação de recursos AWS](docs/cleanup.md)
 - [Arquitetura](docs/arquitetura.md)
+- [Alertas, incidentes e ChatOps (frente 5)](docs/alertas-chatops.md)
 
 ## Acesso e verificação rápida
 
