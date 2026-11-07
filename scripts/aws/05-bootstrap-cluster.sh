@@ -396,6 +396,7 @@ kubectl apply -f gitops/monitoring/storage/storageclass.yaml
 
 bash scripts/monitoring/01-create-grafana-secret.sh
 bash scripts/monitoring/02-create-alerting-secret.sh
+bash scripts/monitoring/03-create-newrelic-secret.sh
 
 echo
 echo "Registrando aplicações de observabilidade no Argo CD..."

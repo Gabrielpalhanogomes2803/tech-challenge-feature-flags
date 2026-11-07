@@ -10,7 +10,12 @@ kubectl get namespace monitoring >/dev/null
 
 read -r -s -p "Integration Key do PagerDuty (Events API v2): " PAGERDUTY_INTEGRATION_KEY; echo
 read -r -s -p "URL do webhook do Slack/Discord: " CHATOPS_WEBHOOK_URL; echo
-read -r -s -p "Token do receptor de self-healing: " SELFHEALING_WEBHOOK_TOKEN; echo
+# Recupera o mesmo token utilizado pelo receptor.
+# O valor nao e exibido no terminal.
+SELFHEALING_WEBHOOK_TOKEN="$(
+  kubectl -n togglemaster get secret togglemaster-self-healing \
+    -o jsonpath='{.data.WEBHOOK_TOKEN}' | base64 -d
+)"
 
 for name in PAGERDUTY_INTEGRATION_KEY CHATOPS_WEBHOOK_URL SELFHEALING_WEBHOOK_TOKEN; do
   if [[ -z "${!name}" ]]; then
