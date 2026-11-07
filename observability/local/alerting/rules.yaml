@@ -1,0 +1,44 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: togglemaster-auth
+    folder: ToggleMaster
+    interval: 30s
+    rules:
+      - uid: auth-high-5xx-rate
+        title: AuthHigh5xxRate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: |
+                (sum(rate(traces_span_metrics_calls_total{service_name="auth-service", span_kind="SPAN_KIND_SERVER", http_response_status_code=~"5.."}[1m])) or vector(0))
+                /
+                sum(rate(traces_span_metrics_calls_total{service_name="auth-service", span_kind="SPAN_KIND_SERVER"}[1m]))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+        for: 1m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+          service: auth-service
+          namespace: togglemaster
+          deployment: auth-service
+        annotations:
+          summary: Taxa de erros 5xx do auth-service acima de 5%
+          description: Mais de 5% das requisições ao auth-service responderam 5xx no último minuto.

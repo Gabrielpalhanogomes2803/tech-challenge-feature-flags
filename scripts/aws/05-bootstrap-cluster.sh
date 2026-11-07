@@ -366,7 +366,17 @@ do
     --timeout=10m
 done
 
+# Self-healing (Fase 4): o Secret com o token do webhook precisa existir ANTES do
+# pod subir (senão fica em CreateContainerConfigError). Só cria se não existir,
+# para não trocar o token que já foi colado no contact point do Grafana.
+if ! kubectl -n togglemaster get secret togglemaster-self-healing >/dev/null 2>&1; then
+  kubectl -n togglemaster create secret generic togglemaster-self-healing \
+    --from-literal=WEBHOOK_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')" >/dev/null
+  echo "Secret togglemaster-self-healing criado (token não exibido)."
+fi
+
 kubectl apply -f gitops/argocd/applications.yaml
+kubectl apply -f gitops/argocd/self-healing.yaml
 
 echo
 echo "Preparando namespace e credenciais do monitoramento..."
@@ -385,6 +395,8 @@ echo "EBS CSI Driver disponível."
 kubectl apply -f gitops/monitoring/storage/storageclass.yaml
 
 bash scripts/monitoring/01-create-grafana-secret.sh
+bash scripts/monitoring/02-create-alerting-secret.sh
+bash scripts/monitoring/03-create-newrelic-secret.sh
 
 echo
 echo "Registrando aplicações de observabilidade no Argo CD..."
@@ -392,6 +404,7 @@ echo "Registrando aplicações de observabilidade no Argo CD..."
 kubectl apply -f gitops/argocd/monitoring-dashboard.yaml
 kubectl apply -f gitops/argocd/monitoring-prometheus.yaml
 kubectl apply -f gitops/argocd/monitoring-loki.yaml
+kubectl apply -f gitops/argocd/monitoring-otel-collector.yaml
 echo
 echo "Aguardando sincronização do dashboard ToggleMaster..."
 
@@ -436,7 +449,7 @@ echo
 echo
 echo "Verificando saúde das aplicações de observabilidade..."
 
-for application in togglemaster-prometheus togglemaster-loki togglemaster-grafana; do
+for application in togglemaster-prometheus togglemaster-loki togglemaster-otel-collector togglemaster-grafana; do
   echo "Aguardando $application..."
 
   READY=false

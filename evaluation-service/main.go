@@ -6,11 +6,14 @@ import (
 	"os"
 	"time"
 
+	"evaluation-service/internal/telemetry"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type App struct {
@@ -24,6 +27,17 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load()
+
+	// Telemetria (traces via OTLP). Uma falha aqui não derruba o serviço.
+	shutdownTelemetry, err := telemetry.Init(context.Background())
+	if err != nil {
+		writeLog("error", "telemetry_init_failed", LogEvent{
+			Component: "telemetry",
+			Message:   "failed to initialize OpenTelemetry: " + err.Error(),
+		})
+	} else {
+		defer shutdownTelemetry(context.Background())
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -116,8 +130,11 @@ func main() {
 		})
 	}
 
+	// O transport instrumentado cria um span de cliente para cada chamada ao
+	// flag-service e ao targeting-service e envia o header traceparent.
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 
 	app := &App{
@@ -134,12 +151,22 @@ func main() {
 	mux.HandleFunc("/live", app.liveHandler)
 	mux.HandleFunc("/evaluate", app.evaluationHandler)
 
+	// Um span por requisição recebida. Probes ficam de fora para não poluir o APM.
+		handler := otelhttp.NewHandler(mux, "evaluation-service",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/health" && r.URL.Path != "/live"
+		}),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.URL.Path
+		}),
+	)
+
 	writeLog("info", "service_started", LogEvent{
 		Component: "http-server",
 		Message:   "evaluation-service started",
 	})
 
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		fatalLog("http_server_failed", LogEvent{
 			Component: "http-server",
 			Message:   "HTTP server stopped unexpectedly",

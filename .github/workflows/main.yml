@@ -76,6 +76,7 @@ jobs:
           targeting-service|togglemaster-targeting
           evaluation-service|togglemaster-evaluation
           analytics-service|togglemaster-analytics
+          self-healing|togglemaster-self-healing
           SERVICES
 
       - name: Update GitOps image tags
@@ -105,6 +106,10 @@ jobs:
           sed -i \
             "s|image: .*togglemaster-analytics:.*|image: ${REGISTRY}/togglemaster-analytics:${IMAGE_TAG}|" \
             gitops/services/analytics/deployment.yaml
+
+          sed -i \
+            "s|image: .*togglemaster-self-healing:.*|image: ${REGISTRY}/togglemaster-self-healing:${IMAGE_TAG}|" \
+            gitops/services/self-healing/deployment.yaml
 
       - name: Commit GitOps update
         shell: bash
