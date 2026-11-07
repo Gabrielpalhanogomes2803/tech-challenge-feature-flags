@@ -1,0 +1,13 @@
+# Frente 5: teste local da regra e dos contact points.
+# Uso (na raiz do repositório, com as variáveis exportadas no terminal):
+#   docker compose --project-directory . \
+#     -f observability/local/docker-compose.observability.yml \
+#     -f observability/local/docker-compose.alerting.yml up
+services:
+  grafana:
+    environment:
+      PAGERDUTY_INTEGRATION_KEY: ${PAGERDUTY_INTEGRATION_KEY:?exporte a chave do PagerDuty}
+      CHATOPS_WEBHOOK_URL: ${CHATOPS_WEBHOOK_URL:?exporte a URL do webhook do Slack/Discord}
+      SELFHEALING_WEBHOOK_TOKEN: teste-local
+    volumes:
+      - ./observability/local/alerting:/etc/grafana/provisioning/alerting:ro

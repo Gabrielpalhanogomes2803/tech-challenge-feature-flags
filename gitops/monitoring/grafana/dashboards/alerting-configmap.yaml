@@ -1,0 +1,136 @@
+# Frente 5 (Susana): provisionamento do Grafana Alerting.
+# Uma regra (AuthHigh5xxRate) e três destinos: PagerDuty, ChatOps e o
+# receptor de self-healing. Os segredos vêm de variáveis de ambiente
+# ($PAGERDUTY_INTEGRATION_KEY etc.), lidas do Secret togglemaster-grafana-alerting.
+# Atenção: o Grafana troca qualquer $PALAVRA por variável de ambiente, por isso
+# os templates abaixo usam .Labels/.Annotations e nunca $labels.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: togglemaster-grafana-alerting-config
+  namespace: monitoring
+data:
+  rules.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: togglemaster-auth
+        folder: ToggleMaster
+        interval: 30s
+        rules:
+          - uid: auth-high-5xx-rate
+            title: AuthHigh5xxRate
+            condition: C
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  refId: A
+                  instant: true
+                  expr: |
+                    (sum(rate(traces_span_metrics_calls_total{service_name="auth-service", span_kind="SPAN_KIND_SERVER", http_response_status_code=~"5.."}[1m])) or vector(0))
+                    /
+                    sum(rate(traces_span_metrics_calls_total{service_name="auth-service", span_kind="SPAN_KIND_SERVER"}[1m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [0.05]
+            for: 1m
+            noDataState: OK
+            execErrState: Error
+            labels:
+              severity: critical
+              service: auth-service
+              namespace: togglemaster
+              deployment: auth-service
+            annotations:
+              summary: Taxa de erros 5xx do auth-service acima de 5%
+              description: Mais de 5% das requisições ao auth-service responderam 5xx no último minuto.
+
+  contactpoints.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: togglemaster-pagerduty
+        receivers:
+          - uid: togglemaster-pagerduty
+            type: pagerduty
+            settings:
+              integrationKey: $PAGERDUTY_INTEGRATION_KEY
+              severity: critical
+              component: auth-service
+              group: togglemaster
+              summary: '{{ template "togglemaster.titulo" . }}'
+      - orgId: 1
+        name: togglemaster-chatops
+        receivers:
+          # Discord (escolha do grupo). Para Slack: type: slack e text: no lugar de message:.
+          - uid: togglemaster-chatops
+            type: discord
+            settings:
+              url: $CHATOPS_WEBHOOK_URL
+              title: '{{ template "togglemaster.titulo" . }}'
+              message: '{{ template "togglemaster.mensagem" . }}'
+      - orgId: 1
+        name: togglemaster-selfhealing
+        receivers:
+          - uid: togglemaster-selfhealing
+            type: webhook
+            settings:
+              # TROCAR: nome do Service, porta e caminho reais do receptor da Heloisa.
+              url: http://selfhealing-receiver.togglemaster.svc.cluster.local:8080/webhook
+              httpMethod: POST
+              authorization_scheme: Bearer
+              authorization_credentials: $SELFHEALING_WEBHOOK_TOKEN
+
+  policies.yaml: |
+    apiVersion: 1
+    policies:
+      - orgId: 1
+        receiver: togglemaster-chatops
+        group_by: ['grafana_folder', 'alertname']
+        group_wait: 10s
+        group_interval: 1m
+        repeat_interval: 4h
+        routes:
+          - receiver: togglemaster-pagerduty
+            object_matchers:
+              - ['severity', '=', 'critical']
+            continue: true
+          - receiver: togglemaster-chatops
+            object_matchers:
+              - ['severity', '=', 'critical']
+            continue: true
+          - receiver: togglemaster-selfhealing
+            object_matchers:
+              - ['alertname', '=', 'AuthHigh5xxRate']
+
+  templates.yaml: |
+    apiVersion: 1
+    templates:
+      - orgId: 1
+        name: togglemaster
+        template: |
+          {{ define "togglemaster.titulo" }}[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} · {{ .CommonLabels.service }}{{ end }}
+
+          {{ define "togglemaster.mensagem" }}{{ range .Alerts }}
+          **Status:** {{ .Status }}
+          **Serviço:** {{ .Labels.service }} (namespace {{ .Labels.namespace }})
+          **Severidade:** {{ .Labels.severity }}
+          **Resumo:** {{ .Annotations.summary }}
+          **Detalhe:** {{ .Annotations.description }}
+          **Valor medido:** {{ .ValueString }}
+          **Início (UTC):** {{ .StartsAt.Format "02/01/2006 15:04:05" }}
+          {{ if eq .Status "resolved" }}**Fim (UTC):** {{ .EndsAt.Format "02/01/2006 15:04:05" }}
+          {{ end }}**Ação automática:** rollout restart do deployment {{ .Labels.deployment }} pelo receptor de self-healing
+          **Ver no Grafana:** {{ .GeneratorURL }}
+          {{ end }}{{ end }}
