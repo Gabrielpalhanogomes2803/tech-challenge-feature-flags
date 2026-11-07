@@ -100,4 +100,3 @@ spec:
       volumes:
       - name: temporary-files
         emptyDir: {}
-
