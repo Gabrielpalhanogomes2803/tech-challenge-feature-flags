@@ -93,7 +93,7 @@ func (a *App) evaluationHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go a.sendEvaluationEvent(userID, flagName, result)
+		go a.sendEvaluationEvent(context.WithoutCancel(r.Context()), userID, flagName, result)
 
 	writeLog("info", "evaluation_success", LogEvent{
 		Component:  "evaluation",

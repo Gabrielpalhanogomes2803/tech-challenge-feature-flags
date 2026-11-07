@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"os"
 
+	"auth-service/internal/telemetry"
+
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type App struct {
@@ -16,6 +20,17 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load()
+
+	// Telemetria (traces via OTLP). Uma falha aqui não derruba o serviço.
+	shutdownTelemetry, err := telemetry.Init(context.Background())
+	if err != nil {
+		writeLog("error", "telemetry_init_failed", LogEvent{
+			Component: "telemetry",
+			Message:   "failed to initialize OpenTelemetry: " + err.Error(),
+		})
+	} else {
+		defer shutdownTelemetry(context.Background())
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -71,12 +86,23 @@ func main() {
 		app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)),
 	)
 
+	// Um span por requisição; continua o trace que chega pelo header traceparent
+	// (flag-service, targeting-service e evaluation-service chamam /validate).
+	handler := otelhttp.NewHandler(mux, "auth-service",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return r.URL.Path != "/health" && r.URL.Path != "/live"
+		}),
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.URL.Path
+		}),
+	)
+
 	writeLog("info", "service_started", LogEvent{
 		Component: "http-server",
 		Message:   "auth-service started",
 	})
 
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		fatalLog("http_server_failed", LogEvent{
 			Component: "http-server",
 			Message:   "HTTP server stopped unexpectedly",
