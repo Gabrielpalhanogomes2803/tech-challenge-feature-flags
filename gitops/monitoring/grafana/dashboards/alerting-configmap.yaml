@@ -87,7 +87,7 @@ data:
             type: webhook
             settings:
               # TROCAR: nome do Service, porta e caminho reais do receptor da Heloisa.
-              url: http://selfhealing-receiver.togglemaster.svc.cluster.local:8080/webhook
+              url: http://self-healing.togglemaster.svc.cluster.local:8090/webhook
               httpMethod: POST
               authorization_scheme: Bearer
               authorization_credentials: $SELFHEALING_WEBHOOK_TOKEN
