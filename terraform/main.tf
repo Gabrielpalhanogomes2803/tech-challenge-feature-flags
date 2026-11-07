@@ -18,7 +18,8 @@ module "ecr" {
     "togglemaster-flag",
     "togglemaster-targeting",
     "togglemaster-evaluation",
-    "togglemaster-analytics"
+    "togglemaster-analytics",
+    "togglemaster-self-healing"
   ]
 
   tags = local.common_tags

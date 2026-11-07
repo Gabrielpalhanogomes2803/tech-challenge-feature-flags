@@ -86,9 +86,16 @@ func main() {
 		app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)),
 	)
 
+	// Falha controlada para demonstracao do Self-Healing.
+	// Protegida pela MASTER_KEY e por CHAOS_ENABLED.
+	mux.Handle(
+		"/admin/chaos",
+		app.masterKeyAuthMiddleware(http.HandlerFunc(chaosAdminHandler)),
+	)
+
 	// Um span por requisição; continua o trace que chega pelo header traceparent
 	// (flag-service, targeting-service e evaluation-service chamam /validate).
-	handler := otelhttp.NewHandler(mux, "auth-service",
+	handler := otelhttp.NewHandler(chaosMiddleware(mux), "auth-service",
 		otelhttp.WithFilter(func(r *http.Request) bool {
 			return r.URL.Path != "/health" && r.URL.Path != "/live"
 		}),
