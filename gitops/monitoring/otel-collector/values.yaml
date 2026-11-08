@@ -49,6 +49,11 @@ ports:
     enabled: false
 
 extraEnvs:
+  - name: NEW_RELIC_LICENSE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: newrelic-license
+        key: license-key
 
 resources:
   requests:
@@ -116,6 +121,10 @@ config:
         - name: http.method
 
   exporters:
+    otlphttp/newrelic:
+      endpoint: https://otlp.nr-data.net
+      headers:
+        api-key: ${env:NEW_RELIC_LICENSE_KEY}
     prometheusremotewrite:
       endpoint: http://togglemaster-prometheus-server.monitoring.svc.cluster.local/api/v1/write
       resource_to_telemetry_conversion:
@@ -128,7 +137,7 @@ config:
       traces:
         receivers: [otlp]
         processors: [memory_limiter, resource, batch]
-        exporters: [spanmetrics]
+        exporters: [spanmetrics, otlphttp/newrelic]
       metrics:
         receivers: [otlp, spanmetrics]
         processors: [memory_limiter, resource, batch]
