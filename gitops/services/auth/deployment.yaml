@@ -58,7 +58,7 @@ spec:
         - name: OTEL_SEMCONV_STABILITY_OPT_IN
           value: "http"
         - name: CHAOS_ENABLED
-          value: "true"
+          value: "false"
         - name: PORT
           value: "8001"
         - name: DATABASE_URL
