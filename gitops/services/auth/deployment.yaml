@@ -57,6 +57,8 @@ spec:
           value: "service.namespace=togglemaster,deployment.environment=homolog"
         - name: OTEL_SEMCONV_STABILITY_OPT_IN
           value: "http"
+        - name: CHAOS_ENABLED
+          value: "true"
         - name: PORT
           value: "8001"
         - name: DATABASE_URL
