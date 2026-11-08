@@ -19,7 +19,8 @@ for repository in \
   togglemaster-flag \
   togglemaster-targeting \
   togglemaster-evaluation \
-  togglemaster-analytics
+  togglemaster-analytics \
+  togglemaster-self-healing
 do
   count="$(
     aws ecr describe-images \
@@ -66,9 +67,27 @@ databases = {
 }
 
 def aws_json(arguments):
+    command = ["aws", *arguments, "--region", region, "--output", "json"]
+
+    if arguments[0] == "secretsmanager":
+        home = os.path.expanduser("~")
+        command = [
+            "docker", "run", "--rm",
+            "--entrypoint", "/usr/local/bin/aws",
+            "-e", "AWS_PROFILE=togglemaster-terraform",
+            "-e", f"AWS_REGION={region}",
+            "-e", f"AWS_DEFAULT_REGION={region}",
+            "-e", "AWS_EC2_METADATA_DISABLED=true",
+            "-e", "AWS_MAX_ATTEMPTS=1",
+            "-v", f"{home}/.aws:/root/.aws",
+            "togglemaster/terraform-aws:1.13",
+            *command[1:],
+        ]
+
     output = subprocess.check_output(
-        ["aws", *arguments, "--region", region, "--output", "json"],
+        command,
         text=True,
+        timeout=60,
     )
     return json.loads(output)
 
