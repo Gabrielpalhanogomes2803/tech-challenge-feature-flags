@@ -49,12 +49,6 @@ ports:
     enabled: false
 
 extraEnvs:
-  - name: NEW_RELIC_LICENSE_KEY
-    valueFrom:
-      secretKeyRef:
-        name: newrelic-license
-        key: license-key
-        optional: true
 
 resources:
   requests:
@@ -128,17 +122,13 @@ config:
         enabled: true
     otlphttp/loki:
       endpoint: http://togglemaster-loki.monitoring.svc.cluster.local:3100/otlp
-    otlphttp/newrelic:
-      endpoint: https://otlp.nr-data.net
-      headers:
-        api-key: ${env:NEW_RELIC_LICENSE_KEY}
 
   service:
     pipelines:
       traces:
         receivers: [otlp]
         processors: [memory_limiter, resource, batch]
-        exporters: [otlphttp/newrelic, spanmetrics]
+        exporters: [spanmetrics]
       metrics:
         receivers: [otlp, spanmetrics]
         processors: [memory_limiter, resource, batch]

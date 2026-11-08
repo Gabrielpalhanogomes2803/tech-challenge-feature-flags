@@ -61,13 +61,8 @@ dashboardsConfigMaps:
 # Frente 5: Grafana Alerting provisionado por arquivo (ConfigMap da pasta
 # dashboards/) e segredos lidos do Secret togglemaster-grafana-alerting,
 # criado por scripts/monitoring/02-create-alerting-secret.sh.
-envFromSecret: togglemaster-grafana-alerting
+# Integrações externas desabilitadas para a demonstração.
 
-extraConfigmapMounts:
-  - name: togglemaster-alerting
-    mountPath: /etc/grafana/provisioning/alerting
-    configMap: togglemaster-grafana-alerting-config
-    readOnly: true
 
 grafana.ini:
   server:

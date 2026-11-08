@@ -413,9 +413,18 @@ echo "EBS CSI Driver disponível."
 
 kubectl apply -f gitops/monitoring/storage/storageclass.yaml
 
-bash scripts/monitoring/01-create-grafana-secret.sh
-bash scripts/monitoring/02-create-alerting-secret.sh
-bash scripts/monitoring/03-create-newrelic-secret.sh
+if ! kubectl -n monitoring get secret togglemaster-grafana-admin >/dev/null 2>&1; then
+  bash scripts/monitoring/01-create-grafana-secret.sh
+else
+  echo "Preservando Secret administrativo existente do Grafana."
+fi
+
+if [[ "${SKIP_EXTERNAL_INTEGRATIONS:-0}" == "1" ]]; then
+  echo "Ignorando PagerDuty, ChatOps e New Relic nesta demonstração."
+else
+  bash scripts/monitoring/02-create-alerting-secret.sh
+  bash scripts/monitoring/03-create-newrelic-secret.sh
+fi
 
 echo
 echo "Registrando aplicações de observabilidade no Argo CD..."
