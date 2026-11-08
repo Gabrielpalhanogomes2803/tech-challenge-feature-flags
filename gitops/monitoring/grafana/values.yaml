@@ -64,6 +64,14 @@ dashboardsConfigMaps:
 # Integrações externas desabilitadas para a demonstração.
 
 
+envFromSecret: togglemaster-grafana-alerting
+
+extraConfigmapMounts:
+  - name: togglemaster-alerting
+    configMap: togglemaster-grafana-alerting-config
+    mountPath: /etc/grafana/provisioning/alerting
+    readOnly: true
+
 grafana.ini:
   server:
     # Link "Ver no Grafana" das notificações (acesso por port-forward).
