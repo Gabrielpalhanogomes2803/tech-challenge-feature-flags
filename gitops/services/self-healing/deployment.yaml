@@ -26,7 +26,7 @@ spec:
       containers:
       - name: self-healing
         # A tag é reescrita pelo workflow (sed) a cada deploy, como nos outros serviços.
-        image: 966523587984.dkr.ecr.us-east-1.amazonaws.com/togglemaster-self-healing:bootstrap
+        image: 966523587984.dkr.ecr.us-east-1.amazonaws.com/togglemaster-self-healing:001540ed13d2277640c09add893219456d4f8e24
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
