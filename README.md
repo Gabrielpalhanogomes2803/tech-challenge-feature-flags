@@ -4,7 +4,7 @@
 
 Plataforma de gerenciamento e avaliação de *feature flags* com cinco microsserviços, infraestrutura AWS provisionada por Terraform, entrega contínua via GitHub Actions/ECR/Argo CD e observabilidade no Amazon EKS.
 
-> **Estado da última vistoria — 23/10/2026:** 11 aplicações Argo CD `Synced/Healthy`; 2 nós monitorados; 5 microsserviços com 10/10 réplicas; Grafana **Operations Center V9** (37 elementos); logs dos cinco serviços consultáveis no Loki; 5/5 sondagens HTTP saudáveis, com resposta 200. São evidências pontuais, não garantia de disponibilidade permanente.
+> **Situação da Fase 4 — demonstração concluída em 08/11/2026:** stack de observabilidade e resposta a incidentes demonstrada no laboratório AWS/EKS. Foram registrados alerta real de erros 5xx no `auth-service`, incidente no PagerDuty, notificação no Discord e execução automática do Self-Healing (`rollout restart`). O ambiente AWS do laboratório foi posteriormente desmontado para controle de custos; o código e os manifests permanecem versionados para recriação. A documentação registra o comportamento observado durante a demonstração, não a disponibilidade atual dos serviços.
 
 ## Arquitetura e fluxo
 
@@ -20,7 +20,17 @@ GitHub Actions (CI/DevSecOps) -> ECR -> GitOps/Argo CD -> EKS
 
 **Serviços:** `auth` (Go), `flag` (Python/Flask), `targeting` (Python/Flask), `evaluation` (Go) e `analytics` (Python).
 
-**Observabilidade Fase 4:** Prometheus coleta métricas de cluster/serviços; Blackbox Exporter verifica os endpoints `/health`; Alloy encaminha logs do Kubernetes para Loki; Grafana centraliza saúde, réplicas, CPU/RAM, tendências, logs, erros e latência HTTP. O dashboard é versionado em `gitops/monitoring/grafana/dashboards/eks-dashboard-configmap.yaml` e implantado via Argo CD.
+**Observabilidade Fase 4:** Prometheus armazena métricas do cluster e dos serviços; Blackbox Exporter verifica endpoints `/health`; Grafana centraliza métricas, logs e alertas; Alloy coleta logs dos contêineres e os envia por OTLP ao OpenTelemetry Collector, que roteia logs ao Loki, métricas ao Prometheus (remote write) e traces ao New Relic. O Collector também usa `spanmetrics` para gerar métricas de requisição, erro e duração. O dashboard é versionado em `gitops/monitoring/grafana/dashboards/eks-dashboard-configmap.yaml` e implantado via Argo CD.
+
+## Entrega e validação — Fase 4
+
+- **Vídeo de demonstração (24min51s):** https://drive.google.com/file/d/1Lm3XlXjt4FYDFttTzBiGHbuLe_Di4QtH/view?usp=sharing
+- **Aplicações:** cinco microsserviços instrumentados; serviços identificados no New Relic via OpenTelemetry. Os traces históricos observados do `evaluation-service` eram de um span/uma entidade, portanto não constituem, por si sós, prova de rastreamento distribuído entre microsserviços.
+- **Monitoramento:** Prometheus, Loki, Grafana, Alloy e OpenTelemetry Collector, com configuração Helm/GitOps em `gitops/argocd/` e `gitops/monitoring/`.
+- **Alertas e resposta:** regra `AuthHigh5xxRate` no Grafana, abertura de incidente PagerDuty, mensagem Discord e Self-Healing executando `rollout restart` do `auth-service` (evidenciado em logs da demonstração de 08/11/2026).
+- **Automação:** implementação em `self-healing/`, RBAC restrito em `gitops/services/self-healing/rbac.yaml` e testes em `.github/workflows/self-healing-test.yml`.
+- **Validações de CI/CD:** há execuções anteriores bem-sucedidas do CI DevSecOps, CD ECR/GitOps e Self-Healing; a revisão documental final não implica nova execução de deploy, pois os recursos AWS já foram removidos.
+- **Segurança do laboratório:** `CHAOS_ENABLED=false` no manifesto principal do `auth-service`; o código para injeção controlada de falhas permanece disponível para testes.
 
 ## Evidências e documentação
 
@@ -42,13 +52,12 @@ kubectl -n monitoring port-forward svc/togglemaster-grafana 3001:80
 
 Abrir `http://localhost:3001` **na máquina que executa o comando**, usando credenciais existentes; não publicar credenciais ou expor a interface à internet. Dashboard: **Dashboards → ToggleMaster → ToggleMaster | Operations Center**. No CloudShell, a prévia web pode ter restrições de porta.
 
-## Pendências e limites conhecidos
+## Limites conhecidos e observações
 
-- A janela de 15 minutos apresentou `JSONParserErr` em algumas linhas do Loki; investigar a consulta LogQL e a formatação mista de logs antes de tratar essas entradas como falhas da aplicação.
-- Há avisos de servidor de desenvolvimento em logs de serviços Python; revisar a execução para uso fora do laboratório.
-- Ainda são necessários testes de carga e validação de alertas, tracing/APM e self-healing pelos responsáveis.
-- OpenTelemetry Collector (João): alinhar a topologia com o Alloy para **não duplicar a ingestão de logs**.
-- As evidências descrevem um instante de execução. O ambiente pode ser desligado após a demonstração; o GitHub não comprova que a AWS permanece ligada.
+- Na vistoria de 23/10/2026 houve `JSONParserErr` em parte das consultas ao Loki e avisos de servidor de desenvolvimento em serviços Python; são observações históricas, não conclusões sobre a demonstração final.
+- Os dados históricos observados no New Relic mostram traces de requisição no `evaluation-service`, mas não demonstram por si só um fluxo distribuído com múltiplos serviços.
+- As evidências comprovam a execução na janela de testes; o ambiente AWS/EKS foi desmontado após a gravação para evitar custos e não está hospedado permanentemente.
+- Para reconstruir a infraestrutura é necessário recriar o backend S3 do Terraform antes de executar o fluxo de provisionamento; o backend anterior foi removido ao encerrar o laboratório.
 
 ## Encerramento seguro da AWS
 
